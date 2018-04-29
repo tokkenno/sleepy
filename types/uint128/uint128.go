@@ -23,7 +23,7 @@ func FromInt(val int) *UInt128  { return FromLong(int64(val)) }
 func FromLong(val int64) *UInt128 {
 	num := new(UInt128)
 	if val < 0 {
-		num.hi = ^0
+		num.hi = 1
 	} else {
 		num.hi = 0
 	}
@@ -56,9 +56,9 @@ func (u *UInt128) Compare(o *UInt128) int {
 	return equal
 }
 
-/*func (u *UInt128) Equal(o *UInt128) bool {
-	return u.Compare(o) == equal
-}*/
+func (u *UInt128) Equal(o *UInt128) bool {
+	return u.hi == o.hi && u.lo == o.lo
+}
 
 func (u *UInt128) And(o *UInt128) {
 	u.hi &= o.hi
