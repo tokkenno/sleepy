@@ -9,25 +9,26 @@ import (
 
 const (
 	maxLevels = 6
-	maxSize = 16
 )
 
-type RouterZone struct {
+// Zone is node inside a binary tree of k-buckets
+type Zone struct {
 	localId uint128.UInt128
-	parent *RouterZone
-	leftChild *RouterZone
-	rightChild *RouterZone
+	parent *Zone
+	leftChild *Zone
+	rightChild *Zone
 	level uint
 	bucket *KBucket
 	randomLookupTimer *time.Ticker
 }
 
-func FromFile(localId uint128.UInt128, path string) *RouterZone {
+func FromFile(localId uint128.UInt128, path string) *Zone {
 	return nil
 }
 
-func FromId(id uint128.UInt128) *RouterZone {
-	rz := &RouterZone{
+// Create a new Zone from the local peer Id
+func FromId(id uint128.UInt128) *Zone {
+	rz := &Zone{
 		localId: id,
 		parent: nil,
 		leftChild: nil,
@@ -40,11 +41,12 @@ func FromId(id uint128.UInt128) *RouterZone {
 	return rz
 }
 
-func (this *RouterZone) GetSize() int {
+func (this *Zone) GetSize() int {
 	return 0
 }
 
-func (this *RouterZone) CountPeers() int {
+// Count the number of peers inside the branch
+func (this *Zone) CountPeers() int {
 	if this.isLeaf() {
 		return this.bucket.CountPeers()
 	} else {
@@ -52,11 +54,13 @@ func (this *RouterZone) CountPeers() int {
 	}
 }
 
-func (this *RouterZone) isLeaf() bool {
+// Check if the object is a leaf (is not, is a branch)
+func (this *Zone) isLeaf() bool {
 	return this.bucket != nil
 }
 
-func (this *RouterZone) maxDepth() int {
+// Get the max depth of this branch
+func (this *Zone) maxDepth() int {
 	if this.isLeaf() {
 		return 0
 	} else {
@@ -66,7 +70,8 @@ func (this *RouterZone) maxDepth() int {
 	}
 }
 
-func (this *RouterZone) runRandomLookupTimer() {
+// Run a timer to do random lookup of peers
+func (this *Zone) runRandomLookupTimer() {
 	for range this.randomLookupTimer.C {
 		if (this.parent == nil) {
 			this.onRandomLookupTimer()
@@ -74,7 +79,8 @@ func (this *RouterZone) runRandomLookupTimer() {
 	}
 }
 
-func (this *RouterZone) onRandomLookupTimer() bool {
+// Handle the RandomLookup timer and run a lookup of a random peer inside each leaf
+func (this *Zone) onRandomLookupTimer() bool {
 	if this.isLeaf() {
 		if (this.level < maxLevels || float32(this.bucket.CountPeers()) >= (maxSize * 0.8)) {
 			this.randomLookup();
@@ -87,15 +93,16 @@ func (this *RouterZone) onRandomLookupTimer() bool {
 	}
 }
 
-func (this *RouterZone) randomLookup() {
+func (this *Zone) randomLookup() {
 
 }
 
-func (this *RouterZone) onSmallTimer() {
+func (this *Zone) onSmallTimer() {
 
 }
 
-func (this *RouterZone) CanSplit() bool {
+// Check if the current leaf can be splitted in a branch with 2 leafs
+func (this *Zone) CanSplit() bool {
 	// Max levels allowed reached
 	if (this.level >= 127) {
 		return false
@@ -108,28 +115,29 @@ func (this *RouterZone) CanSplit() bool {
 	return false
 }
 
-func (this *RouterZone) Split() {
+func (this *Zone) Split() {
 
 }
 
-func (this *RouterZone) Add(peer *kad.Peer) error {
+func (this *Zone) Add(peer *kad.Peer) error {
 	return nil
 }
 
-func (this *RouterZone) GetPeer(id uint128.UInt128) *kad.Peer {
+func (this *Zone) GetPeer(id uint128.UInt128) *kad.Peer {
 	return nil
 }
 
-func (this *RouterZone) GetRandomPeer(id uint128.UInt128) *kad.Peer {
+func (this *Zone) GetRandomPeer(id uint128.UInt128) *kad.Peer {
 	return nil
 }
 
-func (this *RouterZone) VerifyPeer(id uint128.UInt128, ip net.IP) bool {
+// Set a peer as verified
+func (this *Zone) VerifyPeer(id uint128.UInt128, ip net.IP) bool {
 	peer := this.GetPeer(id)
 
 	if (peer == nil) {
 		return false
-	} else if !ip.Equal(peer.UDPAddr.IP) {
+	} else if !ip.Equal(peer.GetIP()) {
 		return false
 	} else {
 		peer.IpVerified = true
