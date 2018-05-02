@@ -5,6 +5,7 @@ import (
 	"com/github/reimashi/sleepy/network/kad"
 	"net"
 	"time"
+	"errors"
 )
 
 const (
@@ -22,8 +23,9 @@ type Zone struct {
 	randomLookupTimer *time.Ticker
 }
 
-func FromFile(localId uint128.UInt128, path string) *Zone {
-	return nil
+// Load a router zone tree from file
+func FromFile(localId uint128.UInt128, path string) (*Zone, error) {
+	return nil, errors.New("Not implemented yet")
 }
 
 // Create a new Zone from the local peer Id
@@ -41,14 +43,10 @@ func FromId(id uint128.UInt128) *Zone {
 	return rz
 }
 
-func (this *Zone) GetSize() int {
-	return 0
-}
-
 // Count the number of peers inside the branch
 func (this *Zone) CountPeers() int {
 	if this.isLeaf() {
-		return this.bucket.CountPeers()
+		return this.bucket.Count()
 	} else {
 		return this.leftChild.CountPeers() + this.rightChild.CountPeers()
 	}
@@ -82,7 +80,7 @@ func (this *Zone) runRandomLookupTimer() {
 // Handle the RandomLookup timer and run a lookup of a random peer inside each leaf
 func (this *Zone) onRandomLookupTimer() bool {
 	if this.isLeaf() {
-		if (this.level < maxLevels || float32(this.bucket.CountPeers()) >= (maxSize * 0.8)) {
+		if (this.level < maxLevels || float32(this.bucket.Count()) >= (maxSize * 0.8)) {
 			this.randomLookup();
 			return true;
 		} else {
@@ -108,7 +106,7 @@ func (this *Zone) CanSplit() bool {
 		return false
 	}
 
-	if this.level < maxLevels - 1 && this.GetSize() == maxSize {
+	if this.level < (maxLevels - 1) && this.bucket.Count() == maxSize {
 		return true
 	}
 
@@ -120,6 +118,25 @@ func (this *Zone) Split() {
 }
 
 func (this *Zone) Add(peer *kad.Peer) error {
+	// TODO: Filter IPs and protocol versions
+	if (!this.isLeaf()) {
+
+	} else {
+		if !this.localId.Equal(peer.Id) {
+			locPeer, err := this.bucket.GetPeer(&peer.Id)
+			if err == nil {
+				// Update
+				locPeer.Update(peer)
+			} else {
+				if this.bucket.IsFull() {
+					// Split
+				} else {
+					// Insert
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

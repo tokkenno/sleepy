@@ -22,3 +22,8 @@ func (this *Peer) GetIP() net.IP { return this.ip }
 func (this *Peer) UpdateType() {
 
 }
+
+// Update peer instance from other
+func (this *Peer) Update(peer *Peer) {
+
+}
