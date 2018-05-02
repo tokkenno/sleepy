@@ -56,7 +56,7 @@ func (u *UInt128) Compare(o *UInt128) int {
 	return equal
 }
 
-func (u *UInt128) Equal(o *UInt128) bool {
+func (u *UInt128) Equal(o UInt128) bool {
 	return u.hi == o.hi && u.lo == o.lo
 }
 
