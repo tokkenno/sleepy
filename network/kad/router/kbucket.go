@@ -4,6 +4,9 @@ import (
 	"errors"
 	"com/github/reimashi/sleepy/network/kad"
 	"com/github/reimashi/sleepy/types/uint128"
+	"net"
+	"sync"
+	"math/rand"
 )
 
 const (
@@ -14,10 +17,11 @@ const (
 // K-bucket is a queue of k peers ordered by TTL
 type KBucket struct {
 	peers []kad.Peer
+	peersAccess sync.Mutex
 }
 
 // Count the number of peers on this k-bucket
-func (this *KBucket) CountPeers() int {
+func (this *KBucket) Count() int {
 	return len(this.peers)
 }
 
@@ -25,43 +29,109 @@ func (this *KBucket) CountPeers() int {
 func (this *KBucket) AddPeer(newPeer *kad.Peer) error {
 	if newPeer == nil { return errors.New("KBucket only can storage not null peers") }
 
+	this.peersAccess.Lock()
+
 	sameNetwork := 0
 	for _, peer := range this.peers {
-		if peer.Equal(newPeer) { return errors.New("KBucket already contains this peer") }
+		if peer.Equal(newPeer) {
+			this.peersAccess.Unlock()
+			return errors.New("KBucket already contains this peer")
+		}
 		if peer.GetIP().Equal(newPeer.GetIP()) { sameNetwork++ }
 	}
 
 	if (len(this.peers) >= maxSize) {
+		this.peersAccess.Unlock()
 		return errors.New("The current KBucket is full")
 	}
 
 	if (sameNetwork >= maxPeersPerIP) {
+		this.peersAccess.Unlock()
 		return errors.New("Many peers for the current IP")
 	}
 
 	this.peers = append(this.peers, *newPeer)
+	this.peersAccess.Unlock()
 	// TODO: Adjust global tracking
 	return nil
 }
 
-// Get a peer from his id
-func (this *KBucket) GetPeer(id *uint128.UInt128) (*kad.Peer, error) {
-	for _, peer := range this.peers {
-		if peer.Id.Equal(id) {
-			return &peer, nil
-		}
-	}
-	return nil, errors.New("KBucket not constains a peer with this id")
-}
+// Remove a peer from the bucket
+func (this *KBucket) RemovePeer(peer *kad.Peer) error {
+	this.peersAccess.Lock()
 
-// Push the peer to the end of bucket
-func (this *KBucket) pushToEnd(peer *kad.Peer) error {
-	for position, currPeer := range this.peers {
-		if currPeer.Equal(peer) {
-			this.peers = append(append(this.peers[0:position], this.peers[position+1:len(this.peers)]...), *peer)
+	for index, peertr := range this.peers {
+		if &peertr == peer {
+			this.peers = append(this.peers[0:index], this.peers[index+1:len(this.peers)]...)
+			this.peersAccess.Unlock()
 			return nil
 		}
 	}
+
+	this.peersAccess.Unlock()
+	return errors.New("KBucket not constains a peer with this id")
+}
+
+// Get a peer from his id
+func (this *KBucket) GetPeer(id *uint128.UInt128) (*kad.Peer, error) {
+	this.peersAccess.Lock()
+
+	for _, peer := range this.peers {
+		if peer.Id.Equal(*id) {
+			this.peersAccess.Unlock()
+			return &peer, nil
+		}
+	}
+
+	this.peersAccess.Unlock()
+	return nil, errors.New("KBucket not constains a peer with this id")
+}
+
+// Get a peer from his ip
+func (this *KBucket) GetPeerByIp(ip *net.IP) (*kad.Peer, error) {
+	this.peersAccess.Lock()
+
+	for _, peer := range this.peers {
+		if peer.GetIP().Equal(*ip) {
+			this.peersAccess.Unlock()
+			return &peer, nil
+		}
+	}
+
+	this.peersAccess.Unlock()
+	return nil, errors.New("KBucket not constains a peer with this ip")
+}
+
+func (this *KBucket) GetRandomPeer() (*kad.Peer, error) {
+	this.peersAccess.Lock()
+
+	if (len(this.peers) > 0) {
+		peer := &this.peers[rand.Intn(len(this.peers))]
+		this.peersAccess.Unlock()
+		return peer, nil
+	} else {
+		this.peersAccess.Unlock()
+		return nil, errors.New("KBucket not constains any peer")
+	}
+}
+
+func (this *KBucket) IsFull() bool {
+	return this.Count() == maxSize
+}
+
+// Push the peer to the end of bucket (only if already exists)
+func (this *KBucket) pushToEnd(peer *kad.Peer) error {
+	this.peersAccess.Lock()
+
+	for position, currPeer := range this.peers {
+		if currPeer.Equal(peer) {
+			this.peers = append(append(this.peers[0:position], this.peers[position+1:len(this.peers)]...), *peer)
+			this.peersAccess.Unlock()
+			return nil
+		}
+	}
+
+	this.peersAccess.Unlock()
 	return errors.New("KBucket not constains this peer")
 }
 
