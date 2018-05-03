@@ -27,3 +27,8 @@ func (this *Peer) UpdateType() {
 func (this *Peer) Update(peer *Peer) {
 
 }
+
+// Update peer instance from other
+func (this *Peer) Distance(id uint128.UInt128) uint128.UInt128 {
+	return uint128.Xor(this.Id, id)
+}
