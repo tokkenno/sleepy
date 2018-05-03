@@ -115,6 +115,10 @@ func (this *KBucket) GetRandomPeer() (*kad.Peer, error) {
 	}
 }
 
+func (this *KBucket) GetPeers() []kad.Peer {
+	return this.peers
+}
+
 func (this *KBucket) IsFull() bool {
 	return this.Count() == maxSize
 }
