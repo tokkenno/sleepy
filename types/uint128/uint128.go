@@ -42,45 +42,87 @@ func FromByteArray(data []byte) (*UInt128, error) {
 	return num, nil
 }
 
-func (u *UInt128) Compare(o *UInt128) int {
-	if u.hi < o.hi {
+func (this *UInt128) Clone() UInt128 {
+	return UInt128{
+		this.lo,
+		this.hi,
+	}
+}
+
+func (this *UInt128) Compare(o *UInt128) int {
+	if this.hi < o.hi {
 		return lessThan
-	} else if u.hi > o.hi {
+	} else if this.hi > o.hi {
 		return greaterThan
-	} else if u.lo < o.lo {
+	} else if this.lo < o.lo {
 		return lessThan
-	} else if u.lo > o.lo {
+	} else if this.lo > o.lo {
 		return greaterThan
 	}
 
 	return equal
 }
 
-func (u *UInt128) Equal(o UInt128) bool {
-	return u.hi == o.hi && u.lo == o.lo
+func (this *UInt128) Equal(o UInt128) bool {
+	return this.hi == o.hi && this.lo == o.lo
 }
 
-func (u *UInt128) And(o *UInt128) {
-	u.hi &= o.hi
-	u.lo &= o.lo
+// Get the bit value in the provided position
+func (this *UInt128) GetBit(position uint8) uint8 {
+	valT := this.hi
+	if position > 63 {
+		valT = this.lo
+		position -= 64
+	}
+	iShift := 63 - (position % 64);
+	return uint8((valT >> iShift) & 1);
 }
 
-func (u *UInt128) Or(o *UInt128) {
-	u.hi |= o.hi
-	u.lo |= u.lo
+func And(val1 UInt128, val2 UInt128) UInt128 {
+	newValue := val1.Clone()
+	newValue.And(val2)
+	return newValue
 }
 
-func (u *UInt128) Xor(o *UInt128) {
-	u.hi ^= o.hi
-	u.lo ^= o.lo
+func (this *UInt128) And(o UInt128) {
+	this.hi &= o.hi
+	this.lo &= o.lo
 }
 
-func (u *UInt128) Add(o *UInt128) {
-	carry := u.lo
-	u.lo += o.lo
-	u.hi += o.hi
+func Or(val1 UInt128, val2 UInt128) UInt128 {
+	newValue := val1.Clone()
+	newValue.Or(val2)
+	return newValue
+}
 
-	if u.lo < carry {
-		u.hi += 1
+func (this UInt128) Or(o UInt128) {
+	this.hi |= o.hi
+	this.lo |= o.lo
+}
+
+func Xor(val1 UInt128, val2 UInt128) UInt128 {
+	newValue := val1.Clone()
+	newValue.Xor(val2)
+	return newValue
+}
+
+func (this *UInt128) Xor(o UInt128) {
+	this.hi ^= o.hi
+	this.lo ^= o.lo
+}
+
+func Add(val1 UInt128, val2 UInt128) UInt128 {
+	newValue := val1.Clone()
+	newValue.Add(val2)
+	return newValue
+}
+
+func (this *UInt128) Add(o UInt128) {
+	carry := this.lo
+	this.lo += o.lo
+	this.hi += o.hi
+
+	if this.lo < carry {
+		this.hi += 1
 	}
 }
