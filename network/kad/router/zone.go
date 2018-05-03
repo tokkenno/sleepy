@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 	"errors"
+	"math/rand"
 )
 
 const (
@@ -15,10 +16,11 @@ const (
 // Zone is node inside a binary tree of k-buckets
 type Zone struct {
 	localId uint128.UInt128
+	maskId uint128.UInt128
 	parent *Zone
 	leftChild *Zone
 	rightChild *Zone
-	level uint
+	level uint8
 	bucket *KBucket
 	randomLookupTimer *time.Ticker
 }
@@ -32,6 +34,7 @@ func FromFile(localId uint128.UInt128, path string) (*Zone, error) {
 func FromId(id uint128.UInt128) *Zone {
 	rz := &Zone{
 		localId: id,
+		maskId: id,
 		parent: nil,
 		leftChild: nil,
 		rightChild: nil,
@@ -41,6 +44,35 @@ func FromId(id uint128.UInt128) *Zone {
 	}
 	go rz.runRandomLookupTimer() // TODO: Como parar?
 	return rz
+}
+
+// Create a new child zone
+func (this *Zone) newChilds() (*Zone, *Zone) {
+	leftChild := &Zone {
+		localId: this.localId,
+		maskId: nil, // TODO: Calculate
+		parent: this,
+		leftChild: nil,
+		rightChild: nil,
+		level: this.level + 1,
+		bucket: new(KBucket),
+		randomLookupTimer: time.NewTicker(10 * time.Second),
+	}
+	go leftChild.runRandomLookupTimer() // TODO: Como parar?
+
+	rightChild := &Zone {
+		localId: this.localId,
+		maskId: nil, // TODO: Calculate
+		parent: this,
+		leftChild: nil,
+		rightChild: nil,
+		level: this.level + 1,
+		bucket: new(KBucket),
+		randomLookupTimer: time.NewTicker(10 * time.Second),
+	}
+	go rightChild.runRandomLookupTimer() // TODO: Como parar?
+
+	return leftChild, rightChild
 }
 
 // Count the number of peers inside the branch
@@ -113,23 +145,42 @@ func (this *Zone) CanSplit() bool {
 	return false
 }
 
-func (this *Zone) Split() {
+// Split a leaf into a branch with two leafs
+func (this *Zone) Split() error {
+	if this.CanSplit() {
+		// TODO: Stop timer
+		this.leftChild, this.rightChild = this.newChilds()
 
+		for _, currPeer := range this.bucket.GetPeers() {
+			if currPeer.Distance(this.localId).GetBit(this.level) == 0 {
+				this.leftChild.AddPeer(&currPeer)
+			} else {
+				this.rightChild.AddPeer(&currPeer)
+			}
+		}
+
+		this.bucket = nil
+	} else {
+		return errors.New("This zone can't be splitted")
+	}
+
+	return nil
 }
 
-func (this *Zone) Add(peer *kad.Peer) error {
+func (this *Zone) AddPeer(peer *kad.Peer) error {
 	// TODO: Filter IPs and protocol versions
 	if (!this.isLeaf()) {
 
 	} else {
 		if !this.localId.Equal(peer.Id) {
-			locPeer, err := this.bucket.GetPeer(&peer.Id)
+			locPeer, err := this.bucket.GetPeer(peer.Id)
 			if err == nil {
 				// Update
 				locPeer.Update(peer)
 			} else {
 				if this.bucket.IsFull() {
 					// Split
+					this.Split()
 				} else {
 					// Insert
 				}
@@ -140,19 +191,57 @@ func (this *Zone) Add(peer *kad.Peer) error {
 	return nil
 }
 
-func (this *Zone) GetPeer(id uint128.UInt128) *kad.Peer {
-	return nil
+// Get a peer from his id
+func (this *Zone) GetPeer(id uint128.UInt128) (*kad.Peer, error) {
+	if this.isLeaf() {
+		return this.bucket.GetPeer(id)
+	} else {
+		distance := uint128.Xor(this.maskId, id) // TODO: localId?
+		if distance.GetBit(this.level) == 0 {
+			return this.leftChild.GetPeer(id)
+		} else {
+			return this.rightChild.GetPeer(id)
+		}
+	}
 }
 
-func (this *Zone) GetRandomPeer(id uint128.UInt128) *kad.Peer {
-	return nil
+// Get a peer from his ip
+func (this *Zone) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
+	if this.isLeaf() {
+		return this.bucket.GetPeerByIp(ip)
+	} else {
+		left, err := this.leftChild.GetPeerByIp(ip)
+
+		if err != nil {
+			return this.rightChild.GetPeerByIp(ip)
+		} else {
+			return left, err
+		}
+	}
+}
+
+// Get a random peer from a random branch
+func (this *Zone) GetRandomPeer() (*kad.Peer, error) {
+	if this.isLeaf() {
+		return this.bucket.GetRandomPeer()
+	} else {
+		childs := [2]*Zone{this.leftChild, this.rightChild}
+		rPos := rand.Intn(1)
+
+		peer, err := childs[rPos].GetRandomPeer()
+		if err != nil {
+			return childs[1^rPos].GetRandomPeer()
+		} else {
+			return peer, err
+		}
+	}
 }
 
 // Set a peer as verified
 func (this *Zone) VerifyPeer(id uint128.UInt128, ip net.IP) bool {
-	peer := this.GetPeer(id)
+	peer, err := this.GetPeer(id)
 
-	if (peer == nil) {
+	if (err != nil) {
 		return false
 	} else if !ip.Equal(peer.GetIP()) {
 		return false
