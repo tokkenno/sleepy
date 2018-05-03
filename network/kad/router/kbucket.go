@@ -73,11 +73,11 @@ func (this *KBucket) RemovePeer(peer *kad.Peer) error {
 }
 
 // Get a peer from his id
-func (this *KBucket) GetPeer(id *uint128.UInt128) (*kad.Peer, error) {
+func (this *KBucket) GetPeer(id uint128.UInt128) (*kad.Peer, error) {
 	this.peersAccess.Lock()
 
 	for _, peer := range this.peers {
-		if peer.Id.Equal(*id) {
+		if peer.Id.Equal(id) {
 			this.peersAccess.Unlock()
 			return &peer, nil
 		}
@@ -88,11 +88,11 @@ func (this *KBucket) GetPeer(id *uint128.UInt128) (*kad.Peer, error) {
 }
 
 // Get a peer from his ip
-func (this *KBucket) GetPeerByIp(ip *net.IP) (*kad.Peer, error) {
+func (this *KBucket) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
 	this.peersAccess.Lock()
 
 	for _, peer := range this.peers {
-		if peer.GetIP().Equal(*ip) {
+		if peer.GetIP().Equal(ip) {
 			this.peersAccess.Unlock()
 			return &peer, nil
 		}
@@ -124,7 +124,7 @@ func (this *KBucket) pushToEnd(peer *kad.Peer) error {
 	this.peersAccess.Lock()
 
 	for position, currPeer := range this.peers {
-		if currPeer.Equal(peer) {
+		if &currPeer == peer {
 			this.peers = append(append(this.peers[0:position], this.peers[position+1:len(this.peers)]...), *peer)
 			this.peersAccess.Unlock()
 			return nil
@@ -136,8 +136,8 @@ func (this *KBucket) pushToEnd(peer *kad.Peer) error {
 }
 
 // Update last viewed status of peer, recalculate and set TTL
-func (this *KBucket) SetAlive(peer *kad.Peer) error {
-	inPeer, err := this.GetPeer(&peer.Id)
+func (this *KBucket) SetAlive(id uint128.UInt128) error {
+	inPeer, err := this.GetPeer(id)
 	if (err != nil) { return err }
 
 	inPeer.UpdateType()
