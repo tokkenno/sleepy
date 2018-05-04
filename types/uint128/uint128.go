@@ -32,13 +32,13 @@ func FromLong(val int64) *UInt128 {
 }
 
 func FromByteArray(data []byte) (*UInt128, error) {
-	if (len(data) != 8) {
-		return nil, errors.New("UInt128 only can be parsed from 8 byte length array")
+	if len(data) != 16 {
+		return nil, errors.New("UInt128 only can be parsed from 16 byte length array")
 	}
 
 	num := new(UInt128)
-	num.hi = binary.BigEndian.Uint64(data[0:3])
-	num.lo = binary.BigEndian.Uint64(data[4:7])
+	num.hi = binary.BigEndian.Uint64(data[0:8])
+	num.lo = binary.BigEndian.Uint64(data[8:16])
 	return num, nil
 }
 
