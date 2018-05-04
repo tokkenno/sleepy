@@ -3,6 +3,7 @@ package uint128
 import (
 	"errors"
 	"encoding/binary"
+	"strconv"
 )
 
 const (
@@ -125,4 +126,8 @@ func (this *UInt128) Add(o UInt128) {
 	if this.lo < carry {
 		this.hi += 1
 	}
+}
+
+func (this *UInt128) ToHexString() string {
+	return strconv.FormatUint(this.hi, 16) + strconv.FormatUint(this.lo, 16)
 }
