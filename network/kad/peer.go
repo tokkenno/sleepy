@@ -1,12 +1,12 @@
 package kad
 
 import (
-	"com/github/reimashi/sleepy/types/uint128"
+	"com/github/reimashi/sleepy/types"
 	"net"
 )
 
 type Peer struct {
-	Id uint128.UInt128
+	Id types.UInt128
 	ip net.IP
 	udpPort uint16
 	tcpPort uint16
@@ -29,6 +29,6 @@ func (this *Peer) Update(peer *Peer) {
 }
 
 // Update peer instance from other
-func (this *Peer) Distance(id uint128.UInt128) uint128.UInt128 {
-	return uint128.Xor(this.Id, id)
+func (this *Peer) Distance(id types.UInt128) types.UInt128 {
+	return types.Xor(this.Id, id)
 }

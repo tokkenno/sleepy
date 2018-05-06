@@ -3,7 +3,7 @@ package router
 import (
 	"errors"
 	"com/github/reimashi/sleepy/network/kad"
-	"com/github/reimashi/sleepy/types/uint128"
+	"com/github/reimashi/sleepy/types"
 	"net"
 	"sync"
 	"math/rand"
@@ -73,7 +73,7 @@ func (this *KBucket) RemovePeer(peer *kad.Peer) error {
 }
 
 // Get a peer from his id
-func (this *KBucket) GetPeer(id uint128.UInt128) (*kad.Peer, error) {
+func (this *KBucket) GetPeer(id types.UInt128) (*kad.Peer, error) {
 	this.peersAccess.Lock()
 
 	for _, peer := range this.peers {
@@ -140,7 +140,7 @@ func (this *KBucket) pushToEnd(peer *kad.Peer) error {
 }
 
 // Update last viewed status of peer, recalculate and set TTL
-func (this *KBucket) SetAlive(id uint128.UInt128) error {
+func (this *KBucket) SetAlive(id types.UInt128) error {
 	inPeer, err := this.GetPeer(id)
 	if (err != nil) { return err }
 

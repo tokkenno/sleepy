@@ -1,4 +1,4 @@
-package ed2k
+package kad
 
 const (
 	CommUnknown                 = 0xff

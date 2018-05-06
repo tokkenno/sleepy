@@ -1,7 +1,7 @@
 package router
 
 import (
-	"com/github/reimashi/sleepy/types/uint128"
+	"com/github/reimashi/sleepy/types"
 	"com/github/reimashi/sleepy/network/kad"
 	"net"
 	"time"
@@ -15,8 +15,8 @@ const (
 
 // Zone is node inside a binary tree of k-buckets
 type Zone struct {
-	localId uint128.UInt128
-	maskId uint128.UInt128
+	localId types.UInt128
+	maskId types.UInt128
 	parent *Zone
 	leftChild *Zone
 	rightChild *Zone
@@ -26,12 +26,12 @@ type Zone struct {
 }
 
 // Load a router zone tree from file
-func FromFile(localId uint128.UInt128, path string) (*Zone, error) {
+func FromFile(localId types.UInt128, path string) (*Zone, error) {
 	return nil, errors.New("Not implemented yet")
 }
 
 // Create a new Zone from the local peer Id
-func FromId(id uint128.UInt128) *Zone {
+func FromId(id types.UInt128) *Zone {
 	rz := &Zone{
 		localId: id,
 		maskId: id,
@@ -192,11 +192,11 @@ func (this *Zone) AddPeer(peer *kad.Peer) error {
 }
 
 // Get a peer from his id
-func (this *Zone) GetPeer(id uint128.UInt128) (*kad.Peer, error) {
+func (this *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
 	if this.isLeaf() {
 		return this.bucket.GetPeer(id)
 	} else {
-		distance := uint128.Xor(this.maskId, id) // TODO: localId?
+		distance := types.Xor(this.maskId, id) // TODO: localId?
 		if distance.GetBit(this.level) == 0 {
 			return this.leftChild.GetPeer(id)
 		} else {
@@ -238,7 +238,7 @@ func (this *Zone) GetRandomPeer() (*kad.Peer, error) {
 }
 
 // Set a peer as verified
-func (this *Zone) VerifyPeer(id uint128.UInt128, ip net.IP) bool {
+func (this *Zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
 	peer, err := this.GetPeer(id)
 
 	if (err != nil) {

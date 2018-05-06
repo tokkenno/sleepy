@@ -2,17 +2,17 @@ package kad
 
 import (
 	"net"
-	"bytes"
+	"com/github/reimashi/sleepy/io"
 )
 
 type Datagram struct {
-	typeCode byte
-	data []byte
+	protocolCode byte
+	data *[]byte
 }
 
 type InDatagram struct {
 	Datagram
-	reader *bytes.Reader
+	reader *io.Reader
 	from net.Addr
 }
 

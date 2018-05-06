@@ -1,4 +1,4 @@
-package uint128
+package types
 
 import (
 	"errors"
@@ -19,9 +19,9 @@ type UInt128 struct {
 	hi uint64
 }
 
-func FromInt(val int) *UInt128  { return FromLong(int64(val)) }
+func NewUInt128FromInt(val int) *UInt128  { return NewUInt128FromLong(int64(val)) }
 
-func FromLong(val int64) *UInt128 {
+func NewUInt128FromLong(val int64) *UInt128 {
 	num := new(UInt128)
 	if val < 0 {
 		num.hi = 1
@@ -32,7 +32,7 @@ func FromLong(val int64) *UInt128 {
 	return num
 }
 
-func FromByteArray(data []byte) (*UInt128, error) {
+func NewUInt128FromByteArray(data []byte) (*UInt128, error) {
 	if len(data) != 16 {
 		return nil, errors.New("UInt128 only can be parsed from 16 byte length array")
 	}
