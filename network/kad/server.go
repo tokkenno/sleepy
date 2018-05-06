@@ -39,9 +39,7 @@ func (this *Server) Start () {
 	go this.listen()
 }
 
-/**
- * Listen new UDP connections
- */
+// Listen new UDP connections
 func (this *Server) listen() {
 
 	defer this.serverConn.Close()
@@ -100,7 +98,7 @@ func (this *Server) handleDatagram(data []byte, from *net.UDPAddr) error {
 }
 
 func (this *Server) decompressKad(data []byte, from *net.UDPAddr) error {
-	return errors.New("uncompressKad not implemented yet")
+	return errors.New("decompress kad not implemented yet")
 }
 
 func (this *Server) handleKadDatagram(datagram *InDatagram) error {
@@ -109,12 +107,42 @@ func (this *Server) handleKadDatagram(datagram *InDatagram) error {
 	kadDatagram := KadInDatagram{datagram, command}
 
 	switch kadDatagram.command {
+	case CommKad2BootstrapReq:
+		this.handleKad2BootstrapReq(&kadDatagram)
+		break
+	case CommKad2BootstrapRes:
+		this.handleKad2BootstrapRes(&kadDatagram)
+		break
+	case CommKad2HelloReq:
+		this.handleKad2HelloReq(&kadDatagram)
+		break
+	case CommKad2HelloRes:
+		this.handleKad2HelloRes(&kadDatagram)
+		break
+	case CommKad2HelloResAck:
+		this.handleKad2HelloResAck(&kadDatagram)
+		break
+	case CommKad2Req:
+		this.handleKad2Req(&kadDatagram)
+		break
+	case CommKad2Res:
+		this.handleKad2Res(&kadDatagram)
+		break
+	case CommKadFirewalled2Req:
+		this.handleKadFirewalled2Req(&kadDatagram)
+		break
+	case CommKad2FirewallUDP:
+		this.handleKad2FirewallUdp(&kadDatagram)
+		break
 	case CommKad2Ping:
 		this.handleKad2Ping(&kadDatagram)
 		break
+	case CommKad2Pong:
+		this.handleKad2Pong(&kadDatagram)
+		break
 	}
 
-	return errors.New("Unknow KAD packet to parse")
+	return errors.New("unknow kad packet to parse")
 }
 
 func (this *Server) handleKad2BootstrapReq(datagram *KadInDatagram) error {
@@ -161,15 +189,15 @@ func (this *Server) handleKadFirewalledAckRes(datagram *KadInDatagram) error {
 	return errors.New("Not implemented exception " + strconv.Itoa(int(datagram.command)))
 }
 
+func (this *Server) handleKad2FirewallUdp(datagram *KadInDatagram) error {
+	return errors.New("Not implemented exception " + strconv.Itoa(int(datagram.command)))
+}
+
 func (this *Server) handleKad2Ping(datagram *KadInDatagram) error {
 	//this.client.SendPong()
 	return errors.New("Not implemented exception " + strconv.Itoa(int(datagram.command)))
 }
 
 func (this *Server) handleKad2Pong(datagram *KadInDatagram) error {
-	return errors.New("Not implemented exception " + strconv.Itoa(int(datagram.command)))
-}
-
-func (this *Server) handleKad2FirewallUdp(datagram *KadInDatagram) error {
 	return errors.New("Not implemented exception " + strconv.Itoa(int(datagram.command)))
 }
