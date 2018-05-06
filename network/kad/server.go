@@ -6,8 +6,8 @@ import (
 	"net"
 	"fmt"
 	"time"
-	"bytes"
-	"com/github/reimashi/sleepy/network/kad/ed2k"
+	"com/github/reimashi/sleepy/network/ed2k"
+	"com/github/reimashi/sleepy/io"
 )
 
 type Server struct {
@@ -75,23 +75,28 @@ func (this *Server) handleDatagram(data []byte, from *net.UDPAddr) error {
 
 	fmt.Println("Received ",string(data), " from ", from)
 
-	dataReader := bytes.NewReader(data)
+	dataReader := io.NewReader(data)
 
-	typeCode, err := dataReader.ReadByte()
-	if err != nil { return err }
-	typeCode = typeCode
+	protocolCode := dataReader.ReadByte()
+	size := dataReader.ReadInt()
 
-	datagram := InDatagram{Datagram{typeCode, data}, dataReader, from}
+	if (!dataReader.Correct()) {
+		return errors.New("datagram read error")
+	} else if (size + 5 == len(data)) {
+		datagram := InDatagram{Datagram{protocolCode, &data}, dataReader, from}
 
-	switch datagram.typeCode {
-	case ed2k.ProtKadUDPCompress:
-		return this.decompressKad(data, from)
-		break
-	case ed2k.ProtKadUDP:
-		return this.handleKadDatagram(&datagram)
+		switch datagram.protocolCode {
+		case ed2k.ProtKadUDPCompress:
+			return this.decompressKad(data, from)
+			break
+		case ed2k.ProtKadUDP:
+			return this.handleKadDatagram(&datagram)
+		}
+
+		return errors.New("unknown packet to parse")
+	} else {
+		return errors.New("datagram size mismatch")
 	}
-
-	return errors.New("Unknow packet to parse")
 }
 
 func (this *Server) decompressKad(data []byte, from *net.UDPAddr) error {
@@ -99,13 +104,12 @@ func (this *Server) decompressKad(data []byte, from *net.UDPAddr) error {
 }
 
 func (this *Server) handleKadDatagram(datagram *InDatagram) error {
-	command, err := datagram.reader.ReadByte()
-	if err != nil { return err }
+	command := datagram.reader.ReadByte()
 
 	kadDatagram := KadInDatagram{datagram, command}
 
 	switch kadDatagram.command {
-	case ed2k.CommKad2Ping:
+	case CommKad2Ping:
 		this.handleKad2Ping(&kadDatagram)
 		break
 	}
@@ -158,6 +162,7 @@ func (this *Server) handleKadFirewalledAckRes(datagram *KadInDatagram) error {
 }
 
 func (this *Server) handleKad2Ping(datagram *KadInDatagram) error {
+	//this.client.SendPong()
 	return errors.New("Not implemented exception " + strconv.Itoa(int(datagram.command)))
 }
 

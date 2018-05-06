@@ -43,6 +43,14 @@ func (this *Client) SendPacket(command byte, body []byte, to *net.UDPAddr, crypt
 	fmt.Println(err)
 }
 
-func (this *Client) startBootstrap() {
+func (this *Client) bootstrap(peer Peer) {
 
+}
+
+func (this *Client) sendMyDetails() {
+
+}
+
+func (this *Client) SendPong(peer *Peer) error {
+	return nil
 }
