@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 	"math/rand"
+	"time"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 
 // K-bucket is a queue of k peers ordered by TTL
 type KBucket struct {
+	randGen *rand.Rand
 	peers []kad.Peer
 	peersAccess sync.Mutex
 }
@@ -33,11 +35,11 @@ func (this *KBucket) AddPeer(newPeer *kad.Peer) error {
 
 	sameNetwork := 0
 	for _, peer := range this.peers {
-		if peer.Equal(newPeer) {
+		if peer.Equal(*newPeer) {
 			this.peersAccess.Unlock()
 			return errors.New("KBucket already contains this peer")
 		}
-		if peer.GetIP().Equal(newPeer.GetIP()) { sameNetwork++ }
+		if peer.GetIP().Equal(*newPeer.GetIP()) { sameNetwork++ }
 	}
 
 	if (len(this.peers) >= maxSize) {
@@ -61,7 +63,7 @@ func (this *KBucket) RemovePeer(peer *kad.Peer) error {
 	this.peersAccess.Lock()
 
 	for index, peertr := range this.peers {
-		if &peertr == peer {
+		if peertr.Equal(*peer) {
 			this.peers = append(this.peers[0:index], this.peers[index+1:len(this.peers)]...)
 			this.peersAccess.Unlock()
 			return nil
@@ -77,9 +79,12 @@ func (this *KBucket) GetPeer(id types.UInt128) (*kad.Peer, error) {
 	this.peersAccess.Lock()
 
 	for _, peer := range this.peers {
-		if peer.Id.Equal(id) {
+		peerPtr := &peer
+		peerId := peerPtr.GetId()
+
+		if peerId.Equal(id) {
 			this.peersAccess.Unlock()
-			return &peer, nil
+			return peerPtr, nil
 		}
 	}
 
@@ -103,10 +108,12 @@ func (this *KBucket) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
 }
 
 func (this *KBucket) GetRandomPeer() (*kad.Peer, error) {
+	if this.randGen == nil { this.randGen = rand.New(rand.NewSource(time.Now().UnixNano())) }
+
 	this.peersAccess.Lock()
 
 	if (len(this.peers) > 0) {
-		peer := &this.peers[rand.Intn(len(this.peers))]
+		peer := &this.peers[this.randGen.Intn(len(this.peers))]
 		this.peersAccess.Unlock()
 		return peer, nil
 	} else {
@@ -128,7 +135,7 @@ func (this *KBucket) pushToEnd(peer *kad.Peer) error {
 	this.peersAccess.Lock()
 
 	for position, currPeer := range this.peers {
-		if &currPeer == peer {
+		if peer.Equal(currPeer) {
 			this.peers = append(append(this.peers[0:position], this.peers[position+1:len(this.peers)]...), *peer)
 			this.peersAccess.Unlock()
 			return nil

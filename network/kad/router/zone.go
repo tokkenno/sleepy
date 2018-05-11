@@ -50,7 +50,7 @@ func FromId(id types.UInt128) *Zone {
 func (this *Zone) newChilds() (*Zone, *Zone) {
 	leftChild := &Zone {
 		localId: this.localId,
-		maskId: nil, // TODO: Calculate
+		//maskId: nil, // TODO: Calculate
 		parent: this,
 		leftChild: nil,
 		rightChild: nil,
@@ -62,7 +62,7 @@ func (this *Zone) newChilds() (*Zone, *Zone) {
 
 	rightChild := &Zone {
 		localId: this.localId,
-		maskId: nil, // TODO: Calculate
+		//maskId: nil, // TODO: Calculate
 		parent: this,
 		leftChild: nil,
 		rightChild: nil,
@@ -152,7 +152,8 @@ func (this *Zone) Split() error {
 		this.leftChild, this.rightChild = this.newChilds()
 
 		for _, currPeer := range this.bucket.GetPeers() {
-			if currPeer.Distance(this.localId).GetBit(this.level) == 0 {
+			distance := currPeer.Distance(this.localId)
+			if distance.GetBit(this.level) == 0 {
 				this.leftChild.AddPeer(&currPeer)
 			} else {
 				this.rightChild.AddPeer(&currPeer)
@@ -172,8 +173,8 @@ func (this *Zone) AddPeer(peer *kad.Peer) error {
 	if (!this.isLeaf()) {
 
 	} else {
-		if !this.localId.Equal(peer.Id) {
-			locPeer, err := this.bucket.GetPeer(peer.Id)
+		if !this.localId.Equal(*peer.GetId()) {
+			locPeer, err := this.bucket.GetPeer(*peer.GetId())
 			if err == nil {
 				// Update
 				locPeer.Update(peer)
@@ -243,10 +244,7 @@ func (this *Zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
 
 	if (err != nil) {
 		return false
-	} else if !ip.Equal(peer.GetIP()) {
-		return false
 	} else {
-		peer.IpVerified = true
-		return true
+		return peer.VerifyIp(ip)
 	}
 }
