@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"net"
-	"com/github/reimashi/sleepy/types/uint128"
+	"github.com/reimashi/sleepy/types"
 )
 
 type Client struct {
@@ -38,7 +38,7 @@ func (this *Client) Stop () {
 	this.clientConn.Close()
 }
 
-func (this *Client) SendPacket(command byte, body []byte, to *net.UDPAddr, cryptId *uint128.UInt128) {
+func (this *Client) SendPacket(command byte, body []byte, to *net.UDPAddr, cryptId *types.UInt128) {
 	_, err := this.server.serverConn.WriteToUDP(body, to)
 	fmt.Println(err)
 }

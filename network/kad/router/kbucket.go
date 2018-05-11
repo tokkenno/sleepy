@@ -2,8 +2,8 @@ package router
 
 import (
 	"errors"
-	"com/github/reimashi/sleepy/network/kad"
-	"com/github/reimashi/sleepy/types"
+	"github.com/reimashi/sleepy/network/kad"
+	"github.com/reimashi/sleepy/types"
 	"net"
 	"sync"
 	"math/rand"

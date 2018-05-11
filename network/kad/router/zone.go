@@ -1,8 +1,8 @@
 package router
 
 import (
-	"com/github/reimashi/sleepy/types"
-	"com/github/reimashi/sleepy/network/kad"
+	"github.com/reimashi/sleepy/types"
+	"github.com/reimashi/sleepy/network/kad"
 	"net"
 	"time"
 	"errors"

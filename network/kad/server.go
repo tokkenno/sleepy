@@ -6,8 +6,8 @@ import (
 	"net"
 	"fmt"
 	"time"
-	"com/github/reimashi/sleepy/network/ed2k"
-	"com/github/reimashi/sleepy/io"
+	"github.com/reimashi/sleepy/network/ed2k"
+	"github.com/reimashi/sleepy/io"
 )
 
 type Server struct {

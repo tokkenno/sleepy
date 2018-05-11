@@ -1,7 +1,7 @@
 package main
 
 import (
-	"com/github/reimashi/sleepy/network/kad"
+	"github.com/reimashi/sleepy/network/kad"
 	"bufio"
 	"os"
 	"fmt"

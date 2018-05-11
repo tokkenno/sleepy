@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"com/github/reimashi/sleepy/types"
+	"github.com/reimashi/sleepy/types"
 	"testing"
 )
 
