@@ -6,6 +6,7 @@ import (
 	"github.com/reimashi/sleepy/types"
 	"net"
 	"strconv"
+	"math/rand"
 )
 
 func TestKBucket_AddPeer(t *testing.T) {
@@ -13,8 +14,8 @@ func TestKBucket_AddPeer(t *testing.T) {
 	kbucket := &KBucket{ }
 	kbucket.AddPeer(peer)
 
-	if kbucket.Count() != 1 {
-		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.Count())
+	if kbucket.CountPeers() != 1 {
+		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.CountPeers())
 	}
 
 	peerIn := &kbucket.peers[0]
@@ -23,26 +24,41 @@ func TestKBucket_AddPeer(t *testing.T) {
 	}
 }
 
+func TestKBucket_AddMultiplePeer(t *testing.T) {
+	kbucket := &KBucket{ }
+	randGen := rand.New(rand.NewSource(0))
+
+	for i := 0; i < maxSize; i++ {
+		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
+		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
+		kbucket.AddPeer(peer)
+
+		if kbucket.CountPeers() != i+1 {
+			t.Errorf("K-Bucket must contains %d peers, %d found", i+1, kbucket.CountPeers())
+		}
+	}
+}
+
 func TestKBucket_Count(t *testing.T) {
 	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
 	kbucket := &KBucket{ }
 	kbucket.AddPeer(peer)
 
-	if kbucket.Count() != 1 {
-		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.Count())
+	if kbucket.CountPeers() != 1 {
+		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.CountPeers())
 	}
 
 	kbucket.AddPeer(peer)
 
-	if kbucket.Count() != 1 {
-		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.Count())
+	if kbucket.CountPeers() != 1 {
+		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.CountPeers())
 	}
 
 	otherPeer := kad.NewPeer(*types.NewUInt128FromInt(2))
 	kbucket.AddPeer(otherPeer)
 
-	if kbucket.Count() != 2 {
-		t.Errorf("K-Bucket must contains two unique peer, %d found", kbucket.Count())
+	if kbucket.CountPeers() != 2 {
+		t.Errorf("K-Bucket must contains two unique peer, %d found", kbucket.CountPeers())
 	}
 }
 
@@ -102,8 +118,8 @@ func TestKBucket_RemovePeer(t *testing.T) {
 	kbucket.AddPeer(peer)
 	kbucket.RemovePeer(peer)
 
-	if kbucket.Count() != 0 {
-		t.Errorf("K-Bucket must be empty, but contains %v elements", kbucket.Count())
+	if kbucket.CountPeers() != 0 {
+		t.Errorf("K-Bucket must be empty, but contains %v elements", kbucket.CountPeers())
 	}
 }
 
@@ -123,7 +139,7 @@ func TestKBucket_IsFull(t *testing.T) {
 	}
 
 	if !kbucket.IsFull() {
-		t.Errorf("K-Bucket must be full (%v) but contains %v", maxSize, kbucket.Count())
+		t.Errorf("K-Bucket must be full (%v) but contains %v", maxSize, kbucket.CountPeers())
 	}
 }
 
@@ -135,7 +151,7 @@ func TestKBucket_SetAlive(t *testing.T) {
 	kbucket.AddPeer(peer0)
 	kbucket.AddPeer(peer1)
 
-	kbucket.SetAlive(*peer0.GetId())
+	kbucket.SetPeerAlive(*peer0.GetId())
 
 	if len(kbucket.GetPeers()) != 2 {
 		t.Errorf("K-Bucket must contains 2 unique peers")
