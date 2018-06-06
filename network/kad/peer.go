@@ -21,47 +21,49 @@ func NewPeer(id types.UInt128) *Peer {
 	}
 }
 
-func (this *Peer) GetId() *types.UInt128 {
-	tId := this.id
+func (peer *Peer) GetId() *types.UInt128 {
+	tId := peer.id
 	tIdCpy := tId.Clone()
 	return &tIdCpy
 }
 
-func (this *Peer) SetIP(ip net.IP, verified bool) {
-	this.ip = make(net.IP, len(ip))
-	copy(this.ip, ip)
-	this.ipVerified = verified
+func (peer *Peer) SetIP(ip net.IP, verified bool) {
+	peer.ip = make(net.IP, len(ip))
+	copy(peer.ip, ip)
+	peer.ipVerified = verified
 }
 
-func (this *Peer) GetIP() *net.IP {
-	cpy := make(net.IP, len(this.ip))
-	copy(cpy, this.ip)
+func (peer *Peer) GetIP() *net.IP {
+	cpy := make(net.IP, len(peer.ip))
+	copy(cpy, peer.ip)
 	return &cpy
 }
 
-func (this *Peer) Equal(peer Peer) bool { return this.id == peer.id }
+func (peer *Peer) Equal(otherPeer Peer) bool {
+	return peer.id == otherPeer.id
+}
 
 // Update peer type based on internal times
-func (this *Peer) UpdateType() {
+func (peer *Peer) UpdateType() {
 
 }
 
 // Update peer instance from other
-func (this *Peer) Update(peer *Peer) {
+func (peer *Peer) Update(otherPeer *Peer) {
 
 }
 
 // Update peer instance from other
-func (this *Peer) Distance(id types.UInt128) types.UInt128 {
-	return types.Xor(this.id, id)
+func (peer *Peer) Distance(id types.UInt128) types.UInt128 {
+	return types.Xor(peer.id, id)
 }
 
 // Set a peer as verified if IP is equal
-func (this *Peer) VerifyIp(ip net.IP) bool {
-	if !ip.Equal(*this.GetIP()) {
+func (peer *Peer) VerifyIp(ip net.IP) bool {
+	if !ip.Equal(*peer.GetIP()) {
 		return false
 	} else {
-		this.ipVerified = true
+		peer.ipVerified = true
 		return true
 	}
 }

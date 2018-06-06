@@ -23,134 +23,139 @@ type KBucket struct {
 }
 
 // Count the number of peers on this k-bucket
-func (this *KBucket) Count() int {
-	return len(this.peers)
+func (bucket *KBucket) CountPeers() int {
+	return len(bucket.peers)
 }
 
 // Check peer data and append to the end of k-bucket if correct
-func (this *KBucket) AddPeer(newPeer *kad.Peer) error {
+func (bucket *KBucket) AddPeer(newPeer *kad.Peer) error {
 	if newPeer == nil { return errors.New("KBucket only can storage not null peers") }
 
-	this.peersAccess.Lock()
+	bucket.peersAccess.Lock()
 
 	sameNetwork := 0
-	for _, peer := range this.peers {
+	for _, peer := range bucket.peers {
 		if peer.Equal(*newPeer) {
-			this.peersAccess.Unlock()
-			return errors.New("KBucket already contains this peer")
+			bucket.peersAccess.Unlock()
+			return errors.New("KBucket already contains the passed peer")
 		}
 		if peer.GetIP().Equal(*newPeer.GetIP()) { sameNetwork++ }
 	}
 
-	if (len(this.peers) >= maxSize) {
-		this.peersAccess.Unlock()
-		return errors.New("The current KBucket is full")
+	if len(bucket.peers) >= maxSize {
+		bucket.peersAccess.Unlock()
+		return errors.New("the current KBucket is full")
 	}
 
-	if (sameNetwork >= maxPeersPerIP) {
-		this.peersAccess.Unlock()
-		return errors.New("Many peers for the current IP")
+	if sameNetwork >= maxPeersPerIP {
+		bucket.peersAccess.Unlock()
+		return errors.New("many peers for the current IP")
 	}
 
-	this.peers = append(this.peers, *newPeer)
-	this.peersAccess.Unlock()
+	bucket.peers = append(bucket.peers, *newPeer)
+	bucket.peersAccess.Unlock()
 	// TODO: Adjust global tracking
 	return nil
 }
 
 // Remove a peer from the bucket
-func (this *KBucket) RemovePeer(peer *kad.Peer) error {
-	this.peersAccess.Lock()
+func (bucket *KBucket) RemovePeer(peer *kad.Peer) error {
+	bucket.peersAccess.Lock()
 
-	for index, peertr := range this.peers {
+	for index, peertr := range bucket.peers {
 		if peertr.Equal(*peer) {
-			this.peers = append(this.peers[0:index], this.peers[index+1:len(this.peers)]...)
-			this.peersAccess.Unlock()
+			bucket.peers = append(bucket.peers[0:index], bucket.peers[index+1:len(bucket.peers)]...)
+			bucket.peersAccess.Unlock()
 			return nil
 		}
 	}
 
-	this.peersAccess.Unlock()
-	return errors.New("KBucket not constains a peer with this id")
+	bucket.peersAccess.Unlock()
+	return errors.New("KBucket don't contains a peer with the passed id")
 }
 
 // Get a peer from his id
-func (this *KBucket) GetPeer(id types.UInt128) (*kad.Peer, error) {
-	this.peersAccess.Lock()
+func (bucket *KBucket) GetPeer(id types.UInt128) (*kad.Peer, error) {
+	bucket.peersAccess.Lock()
 
-	for _, peer := range this.peers {
+	for _, peer := range bucket.peers {
 		peerPtr := &peer
 		peerId := peerPtr.GetId()
 
 		if peerId.Equal(id) {
-			this.peersAccess.Unlock()
+			bucket.peersAccess.Unlock()
 			return peerPtr, nil
 		}
 	}
 
-	this.peersAccess.Unlock()
-	return nil, errors.New("KBucket not constains a peer with this id")
+	bucket.peersAccess.Unlock()
+	return nil, errors.New("KBucket don't contains a peer with the passed id")
 }
 
 // Get a peer from his ip
-func (this *KBucket) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
-	this.peersAccess.Lock()
+func (bucket *KBucket) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
+	bucket.peersAccess.Lock()
 
-	for _, peer := range this.peers {
+	for _, peer := range bucket.peers {
 		if peer.GetIP().Equal(ip) {
-			this.peersAccess.Unlock()
+			bucket.peersAccess.Unlock()
 			return &peer, nil
 		}
 	}
 
-	this.peersAccess.Unlock()
-	return nil, errors.New("KBucket not constains a peer with this ip")
+	bucket.peersAccess.Unlock()
+	return nil, errors.New("KBucket don't contains a peer with the passed ip")
 }
 
-func (this *KBucket) GetRandomPeer() (*kad.Peer, error) {
-	if this.randGen == nil { this.randGen = rand.New(rand.NewSource(time.Now().UnixNano())) }
+func (bucket *KBucket) GetRandomPeer() (*kad.Peer, error) {
+	if bucket.randGen == nil { bucket.randGen = rand.New(rand.NewSource(time.Now().UnixNano())) }
 
-	this.peersAccess.Lock()
+	bucket.peersAccess.Lock()
 
-	if (len(this.peers) > 0) {
-		peer := &this.peers[this.randGen.Intn(len(this.peers))]
-		this.peersAccess.Unlock()
+	if len(bucket.peers) > 0 {
+		peer := &bucket.peers[bucket.randGen.Intn(len(bucket.peers))]
+		bucket.peersAccess.Unlock()
 		return peer, nil
 	} else {
-		this.peersAccess.Unlock()
-		return nil, errors.New("KBucket not constains any peer")
+		bucket.peersAccess.Unlock()
+		return nil, errors.New("KBucket don't contains any peer")
 	}
 }
 
-func (this *KBucket) GetPeers() []kad.Peer {
-	return this.peers
+func (bucket *KBucket) ContainsPeer(id types.UInt128) bool {
+	peer, err := bucket.GetPeer(id)
+	return peer != nil && err != nil
 }
 
-func (this *KBucket) IsFull() bool {
-	return this.Count() == maxSize
+func (bucket *KBucket) GetPeers() []kad.Peer {
+	return bucket.peers
+}
+
+func (bucket *KBucket) IsFull() bool {
+	return bucket.CountPeers() == maxSize
 }
 
 // Push the peer to the end of bucket (only if already exists)
-func (this *KBucket) pushToEnd(peer *kad.Peer) error {
-	this.peersAccess.Lock()
+func (bucket *KBucket) pushToEnd(peer *kad.Peer) error {
+	bucket.peersAccess.Lock()
 
-	for position, currPeer := range this.peers {
+	for position, currPeer := range bucket.peers {
 		if peer.Equal(currPeer) {
-			this.peers = append(append(this.peers[0:position], this.peers[position+1:len(this.peers)]...), *peer)
-			this.peersAccess.Unlock()
+			bucket.peers = append(append(bucket.peers[0:position], bucket.peers[position+1:len(bucket.peers)]...), *peer)
+			bucket.peersAccess.Unlock()
 			return nil
 		}
 	}
 
-	this.peersAccess.Unlock()
-	return errors.New("KBucket not constains this peer")
+	bucket.peersAccess.Unlock()
+	return errors.New("KBucket don't contains the passed peer")
 }
 
 // Update last viewed status of peer, recalculate and set TTL
-func (this *KBucket) SetAlive(id types.UInt128) error {
-	inPeer, err := this.GetPeer(id)
-	if (err != nil) { return err }
+func (bucket *KBucket) SetPeerAlive(id types.UInt128) error {
+	inPeer, err := bucket.GetPeer(id)
+	if err != nil { return err }
 
 	inPeer.UpdateType()
-	return this.pushToEnd(inPeer)
+	return bucket.pushToEnd(inPeer)
 }

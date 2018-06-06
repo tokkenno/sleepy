@@ -47,27 +47,27 @@ func FromId(id types.UInt128) *Zone {
 }
 
 // Create a new child zone
-func (this *Zone) newChilds() (*Zone, *Zone) {
+func (zone *Zone) newChilds() (*Zone, *Zone) {
 	leftChild := &Zone {
-		localId: this.localId,
+		localId: zone.localId,
 		//maskId: nil, // TODO: Calculate
-		parent: this,
-		leftChild: nil,
-		rightChild: nil,
-		level: this.level + 1,
-		bucket: new(KBucket),
+		parent:            zone,
+		leftChild:         nil,
+		rightChild:        nil,
+		level:             zone.level + 1,
+		bucket:            new(KBucket),
 		randomLookupTimer: time.NewTicker(10 * time.Second),
 	}
 	go leftChild.runRandomLookupTimer() // TODO: Como parar?
 
 	rightChild := &Zone {
-		localId: this.localId,
+		localId: zone.localId,
 		//maskId: nil, // TODO: Calculate
-		parent: this,
-		leftChild: nil,
-		rightChild: nil,
-		level: this.level + 1,
-		bucket: new(KBucket),
+		parent:            zone,
+		leftChild:         nil,
+		rightChild:        nil,
+		level:             zone.level + 1,
+		bucket:            new(KBucket),
 		randomLookupTimer: time.NewTicker(10 * time.Second),
 	}
 	go rightChild.runRandomLookupTimer() // TODO: Como parar?
@@ -76,69 +76,69 @@ func (this *Zone) newChilds() (*Zone, *Zone) {
 }
 
 // Count the number of peers inside the branch
-func (this *Zone) CountPeers() int {
-	if this.isLeaf() {
-		return this.bucket.Count()
+func (zone *Zone) CountPeers() int {
+	if zone.isLeaf() {
+		return zone.bucket.CountPeers()
 	} else {
-		return this.leftChild.CountPeers() + this.rightChild.CountPeers()
+		return zone.leftChild.CountPeers() + zone.rightChild.CountPeers()
 	}
 }
 
 // Check if the object is a leaf (is not, is a branch)
-func (this *Zone) isLeaf() bool {
-	return this.bucket != nil
+func (zone *Zone) isLeaf() bool {
+	return zone.bucket != nil
 }
 
 // Get the max depth of this branch
-func (this *Zone) maxDepth() int {
-	if this.isLeaf() {
+func (zone *Zone) maxDepth() int {
+	if zone.isLeaf() {
 		return 0
 	} else {
-		ld := this.leftChild.maxDepth()
-		rd := this.rightChild.maxDepth()
+		ld := zone.leftChild.maxDepth()
+		rd := zone.rightChild.maxDepth()
 		if ld > rd { return ld + 1} else { return rd + 1 }
 	}
 }
 
 // Run a timer to do random lookup of peers
-func (this *Zone) runRandomLookupTimer() {
-	for range this.randomLookupTimer.C {
-		if (this.parent == nil) {
-			this.onRandomLookupTimer()
+func (zone *Zone) runRandomLookupTimer() {
+	for range zone.randomLookupTimer.C {
+		if zone.parent == nil {
+			zone.onRandomLookupTimer()
 		}
 	}
 }
 
 // Handle the RandomLookup timer and run a lookup of a random peer inside each leaf
-func (this *Zone) onRandomLookupTimer() bool {
-	if this.isLeaf() {
-		if (this.level < maxLevels || float32(this.bucket.Count()) >= (maxSize * 0.8)) {
-			this.randomLookup();
-			return true;
+func (zone *Zone) onRandomLookupTimer() bool {
+	if zone.isLeaf() {
+		if zone.level < maxLevels || float32(zone.bucket.CountPeers()) >= (maxSize * 0.8) {
+			zone.randomLookup()
+			return true
 		} else {
-			return false;
+			return false
 		}
 	} else {
-		return this.leftChild.onRandomLookupTimer() && this.rightChild.onRandomLookupTimer()
+		return zone.leftChild.onRandomLookupTimer() && zone.rightChild.onRandomLookupTimer()
 	}
 }
 
-func (this *Zone) randomLookup() {
+func (zone *Zone) randomLookup() {
 
 }
 
-func (this *Zone) onSmallTimer() {
+func (zone *Zone) onSmallTimer() {
 
 }
 
 // Check if the current leaf can be splitted in a branch with 2 leafs
-func (this *Zone) CanSplit() bool {
+func (zone *Zone) CanSplit() bool {
 	// Max levels allowed reached
-	if (this.level >= 127) {
+	if zone.level >= 127 {
 		return false
 	}
 
-	if this.level < (maxLevels - 1) && this.bucket.Count() == maxSize {
+	if zone.level < (maxLevels - 1) && zone.bucket.CountPeers() == maxSize {
 		return true
 	}
 
@@ -146,21 +146,21 @@ func (this *Zone) CanSplit() bool {
 }
 
 // Split a leaf into a branch with two leafs
-func (this *Zone) Split() error {
-	if this.CanSplit() {
+func (zone *Zone) Split() error {
+	if zone.CanSplit() {
 		// TODO: Stop timer
-		this.leftChild, this.rightChild = this.newChilds()
+		zone.leftChild, zone.rightChild = zone.newChilds()
 
-		for _, currPeer := range this.bucket.GetPeers() {
-			distance := currPeer.Distance(this.localId)
-			if distance.GetBit(this.level) == 0 {
-				this.leftChild.AddPeer(&currPeer)
+		for _, currPeer := range zone.bucket.GetPeers() {
+			distance := currPeer.Distance(zone.localId)
+			if distance.GetBit(zone.level) == 0 {
+				zone.leftChild.AddPeer(&currPeer)
 			} else {
-				this.rightChild.AddPeer(&currPeer)
+				zone.rightChild.AddPeer(&currPeer)
 			}
 		}
 
-		this.bucket = nil
+		zone.bucket = nil
 	} else {
 		return errors.New("This zone can't be splitted")
 	}
@@ -168,22 +168,23 @@ func (this *Zone) Split() error {
 	return nil
 }
 
-func (this *Zone) AddPeer(peer *kad.Peer) error {
+func (zone *Zone) AddPeer(peer *kad.Peer) error {
 	// TODO: Filter IPs and protocol versions
-	if (!this.isLeaf()) {
+	if !zone.isLeaf() {
 
 	} else {
-		if !this.localId.Equal(*peer.GetId()) {
-			locPeer, err := this.bucket.GetPeer(*peer.GetId())
+		if !zone.localId.Equal(*peer.GetId()) {
+			locPeer, err := zone.bucket.GetPeer(*peer.GetId())
 			if err == nil {
 				// Update
 				locPeer.Update(peer)
 			} else {
-				if this.bucket.IsFull() {
+				if zone.bucket.IsFull() {
 					// Split
-					this.Split()
+					zone.Split()
 				} else {
 					// Insert
+					zone.bucket.AddPeer(peer)
 				}
 			}
 		}
@@ -193,28 +194,28 @@ func (this *Zone) AddPeer(peer *kad.Peer) error {
 }
 
 // Get a peer from his id
-func (this *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
-	if this.isLeaf() {
-		return this.bucket.GetPeer(id)
+func (zone *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
+	if zone.isLeaf() {
+		return zone.bucket.GetPeer(id)
 	} else {
-		distance := types.Xor(this.maskId, id) // TODO: localId?
-		if distance.GetBit(this.level) == 0 {
-			return this.leftChild.GetPeer(id)
+		distance := types.Xor(zone.maskId, id) // TODO: localId?
+		if distance.GetBit(zone.level) == 0 {
+			return zone.leftChild.GetPeer(id)
 		} else {
-			return this.rightChild.GetPeer(id)
+			return zone.rightChild.GetPeer(id)
 		}
 	}
 }
 
 // Get a peer from his ip
-func (this *Zone) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
-	if this.isLeaf() {
-		return this.bucket.GetPeerByIp(ip)
+func (zone *Zone) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
+	if zone.isLeaf() {
+		return zone.bucket.GetPeerByIp(ip)
 	} else {
-		left, err := this.leftChild.GetPeerByIp(ip)
+		left, err := zone.leftChild.GetPeerByIp(ip)
 
 		if err != nil {
-			return this.rightChild.GetPeerByIp(ip)
+			return zone.rightChild.GetPeerByIp(ip)
 		} else {
 			return left, err
 		}
@@ -222,11 +223,11 @@ func (this *Zone) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
 }
 
 // Get a random peer from a random branch
-func (this *Zone) GetRandomPeer() (*kad.Peer, error) {
-	if this.isLeaf() {
-		return this.bucket.GetRandomPeer()
+func (zone *Zone) GetRandomPeer() (*kad.Peer, error) {
+	if zone.isLeaf() {
+		return zone.bucket.GetRandomPeer()
 	} else {
-		childs := [2]*Zone{this.leftChild, this.rightChild}
+		childs := [2]*Zone{zone.leftChild, zone.rightChild}
 		rPos := rand.Intn(1)
 
 		peer, err := childs[rPos].GetRandomPeer()
@@ -238,11 +239,19 @@ func (this *Zone) GetRandomPeer() (*kad.Peer, error) {
 	}
 }
 
-// Set a peer as verified
-func (this *Zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
-	peer, err := this.GetPeer(id)
+func (zone *Zone) ContainsPeer(id types.UInt128) bool {
+	if zone.isLeaf() {
+		return zone.bucket.ContainsPeer(id)
+	} else {
+		return zone.leftChild.ContainsPeer(id) || zone.rightChild.ContainsPeer(id)
+	}
+}
 
-	if (err != nil) {
+// Set a peer as verified
+func (zone *Zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
+	peer, err := zone.GetPeer(id)
+
+	if err != nil {
 		return false
 	} else {
 		return peer.VerifyIp(ip)
