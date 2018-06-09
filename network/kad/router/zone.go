@@ -100,6 +100,11 @@ func (zone *Zone) maxDepth() int {
 	}
 }
 
+// Get the zone depth on the router tree
+func (zone *Zone) GetLevel() int {
+	return int(zone.level)
+}
+
 // Run a timer to do random lookup of peers
 func (zone *Zone) runRandomLookupTimer() {
 	for range zone.randomLookupTimer.C {
@@ -153,7 +158,7 @@ func (zone *Zone) Split() error {
 
 		for _, currPeer := range zone.bucket.GetPeers() {
 			distance := currPeer.Distance(zone.localId)
-			if distance.GetBit(zone.level) == 0 {
+			if distance.GetBit(zone.GetLevel()) == 0 {
 				zone.leftChild.AddPeer(&currPeer)
 			} else {
 				zone.rightChild.AddPeer(&currPeer)
@@ -199,7 +204,7 @@ func (zone *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
 		return zone.bucket.GetPeer(id)
 	} else {
 		distance := types.Xor(zone.maskId, id) // TODO: localId?
-		if distance.GetBit(zone.level) == 0 {
+		if distance.GetBit(zone.GetLevel()) == 0 {
 			return zone.leftChild.GetPeer(id)
 		} else {
 			return zone.rightChild.GetPeer(id)
