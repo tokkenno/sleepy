@@ -24,7 +24,7 @@ func NewPeer(id types.UInt128) *Peer {
 func (peer *Peer) GetId() *types.UInt128 {
 	tId := peer.id
 	tIdCpy := tId.Clone()
-	return &tIdCpy
+	return tIdCpy
 }
 
 func (peer *Peer) SetIP(ip net.IP, verified bool) {
@@ -54,7 +54,7 @@ func (peer *Peer) Update(otherPeer *Peer) {
 }
 
 // Update peer instance from other
-func (peer *Peer) Distance(id types.UInt128) types.UInt128 {
+func (peer *Peer) Distance(id types.UInt128) *types.UInt128 {
 	return types.Xor(peer.id, id)
 }
 
