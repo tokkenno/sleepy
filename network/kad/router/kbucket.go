@@ -93,13 +93,32 @@ func (bucket *KBucket) GetPeer(id types.UInt128) (*kad.Peer, error) {
 }
 
 // Get a peer from his ip
-func (bucket *KBucket) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
+func (bucket *KBucket) GetPeerByAddr(addr net.Addr) (*kad.Peer, error) {
 	bucket.peersAccess.Lock()
+
+	var ip net.IP
+	var port uint16
+	var isTcp bool
+
+	switch pAddr := addr.(type) {
+	case *net.UDPAddr:
+		ip = pAddr.IP
+		port = uint16(pAddr.Port)
+		isTcp = false
+	case *net.TCPAddr:
+		ip = pAddr.IP
+		port = uint16(pAddr.Port)
+		isTcp = true
+	default:
+		return nil, errors.New("incompatible network type")
+	}
 
 	for _, peer := range bucket.peers {
 		if peer.GetIP().Equal(ip) {
-			bucket.peersAccess.Unlock()
-			return &peer, nil
+			if (isTcp && peer.GetTCPPort() == port) || (!isTcp && peer.GetUDPPort() == port) {
+				bucket.peersAccess.Unlock()
+				return &peer, nil
+			}
 		}
 	}
 

@@ -78,14 +78,16 @@ func TestKBucket_GetPeer(t *testing.T) {
 	}
 }
 
-func TestKBucket_GetPeerByIp(t *testing.T) {
+func TestKBucket_GetPeerByAddr(t *testing.T) {
 	testIp := net.ParseIP("100.101.102.103")
 	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
 	peer.SetIP(testIp, false)
+	peer.SetTCPPort(123)
 	kbucket := &KBucket{ }
 	kbucket.AddPeer(peer)
 
-	gpeer, err := kbucket.GetPeerByIp(testIp)
+	tip := &net.TCPAddr{IP: testIp, Port: 123}
+	gpeer, err := kbucket.GetPeerByAddr(tip)
 	if err != nil {
 		t.Errorf(err.Error())
 	} else if gpeer == nil {

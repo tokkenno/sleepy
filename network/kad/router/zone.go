@@ -212,15 +212,15 @@ func (zone *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
 	}
 }
 
-// Get a peer from his ip
-func (zone *Zone) GetPeerByIp(ip net.IP) (*kad.Peer, error) {
+// Get a peer from his addr
+func (zone *Zone) GetPeerByAddr(addr net.Addr) (*kad.Peer, error) {
 	if zone.isLeaf() {
-		return zone.bucket.GetPeerByIp(ip)
+		return zone.bucket.GetPeerByAddr(addr)
 	} else {
-		left, err := zone.leftChild.GetPeerByIp(ip)
+		left, err := zone.leftChild.GetPeerByAddr(addr)
 
 		if err != nil {
-			return zone.rightChild.GetPeerByIp(ip)
+			return zone.rightChild.GetPeerByAddr(addr)
 		} else {
 			return left, err
 		}
