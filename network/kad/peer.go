@@ -1,7 +1,7 @@
 package kad
 
 import (
-	"github.com/reimashi/sleepy/types"
+	"github.com/tokkenno/sleepy/types"
 	"net"
 )
 

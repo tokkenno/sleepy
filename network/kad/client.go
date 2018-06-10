@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"net"
-	"github.com/reimashi/sleepy/types"
+	"github.com/tokkenno/sleepy/types"
 )
 
 type Client struct {

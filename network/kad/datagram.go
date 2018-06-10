@@ -2,7 +2,7 @@ package kad
 
 import (
 	"net"
-	"github.com/reimashi/sleepy/io"
+	"github.com/tokkenno/sleepy/io"
 )
 
 type Datagram struct {
