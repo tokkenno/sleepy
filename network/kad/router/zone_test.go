@@ -11,9 +11,9 @@ import (
 func TestZone_AddPeer(t *testing.T) {
 	routerId := *types.NewUInt128FromInt(0xff00ff)
 	randGen := rand.New(rand.NewSource(0))
-	zone := FromId(routerId)
+	zone := NewRouter(routerId)
 
-	for i := 0; i < maxSize + 1; i++ {
+	for i := 0; i < maxBucketSize + 1; i++ {
 		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		zone.AddPeer(peer)
@@ -34,9 +34,9 @@ func TestZone_AddPeer(t *testing.T) {
 func TestZone_CountPeers(t *testing.T) {
 	routerId := *types.NewUInt128FromInt(0xff00ff)
 	randGen := rand.New(rand.NewSource(0))
-	zone := FromId(routerId)
+	zone := NewRouter(routerId)
 
-	for i := 0; i < maxSize + 1; i++ {
+	for i := 0; i < maxBucketSize + 1; i++ {
 		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		zone.AddPeer(peer)
