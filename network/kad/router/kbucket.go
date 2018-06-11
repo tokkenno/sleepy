@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxSize = 16		// Max number of peers in each k-bucket
+	maxBucketSize = 16		// Max number of peers in each k-bucket
 	maxPeersPerIP = 3 	// Number of peers permitted from same public IP
 )
 
@@ -25,6 +25,11 @@ type KBucket struct {
 // Count the number of peers on this k-bucket
 func (bucket *KBucket) CountPeers() int {
 	return len(bucket.peers)
+}
+
+// Count the number of peers that can be stored yet
+func (bucket *KBucket) CountRemainingPeers() int {
+	return maxBucketSize - bucket.CountPeers()
 }
 
 // Check peer data and append to the end of k-bucket if correct
@@ -42,7 +47,7 @@ func (bucket *KBucket) AddPeer(newPeer *kad.Peer) error {
 		if peer.GetIP().Equal(*newPeer.GetIP()) { sameNetwork++ }
 	}
 
-	if len(bucket.peers) >= maxSize {
+	if len(bucket.peers) >= maxBucketSize {
 		bucket.peersAccess.Unlock()
 		return errors.New("the current KBucket is full")
 	}
@@ -151,7 +156,7 @@ func (bucket *KBucket) GetPeers() []kad.Peer {
 }
 
 func (bucket *KBucket) IsFull() bool {
-	return bucket.CountPeers() == maxSize
+	return bucket.CountPeers() == maxBucketSize
 }
 
 // Push the peer to the end of bucket (only if already exists)

@@ -28,7 +28,7 @@ func TestKBucket_AddMultiplePeer(t *testing.T) {
 	kbucket := &KBucket{ }
 	randGen := rand.New(rand.NewSource(0))
 
-	for i := 0; i < maxSize; i++ {
+	for i := 0; i < maxBucketSize; i++ {
 		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		kbucket.AddPeer(peer)
@@ -127,13 +127,13 @@ func TestKBucket_RemovePeer(t *testing.T) {
 
 func TestKBucket_IsFull(t *testing.T) {
 	kbucket := &KBucket{ }
-	var peers [maxSize]kad.Peer
+	var peers [maxBucketSize]kad.Peer
 
 	if kbucket.IsFull() {
 		t.Errorf("K-Bucket must not be full")
 	}
 
-	for i := 0; i < maxSize; i++ {
+	for i := 0; i < maxBucketSize; i++ {
 		newPeer := kad.NewPeer(*types.NewUInt128FromInt(i))
 		newPeer.SetIP(net.ParseIP("100.101.102." + strconv.Itoa(i)), false) // Limit of peers with the same ip
 		peers[i] = *newPeer
@@ -141,7 +141,7 @@ func TestKBucket_IsFull(t *testing.T) {
 	}
 
 	if !kbucket.IsFull() {
-		t.Errorf("K-Bucket must be full (%v) but contains %v", maxSize, kbucket.CountPeers())
+		t.Errorf("K-Bucket must be full (%v) but contains %v", maxBucketSize, kbucket.CountPeers())
 	}
 }
 
