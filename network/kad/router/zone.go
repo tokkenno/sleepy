@@ -24,6 +24,7 @@ type Zone struct {
 	bucket            *KBucket
 	randomLookupTimer *time.Ticker
 	randomGenerator   *rand.Rand
+	checkStopFlag	  bool
 }
 
 // Load a router zone tree from file
@@ -41,14 +42,16 @@ func NewRouter(id types.UInt128) *Zone {
 		rightChild:        nil,
 		level:             0,
 		bucket:            new(KBucket),
-		randomLookupTimer: time.NewTicker(10 * time.Second),
+		randomLookupTimer: nil,
 		randomGenerator:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 
-	go rz.runRandomLookupTimer() // TODO: Como parar?
+	rz.startChecks()
+
 	return rz
 }
 
+// Create a child zone from a parent instance
 func newChildZone(parent Zone, isRightChild bool) *Zone {
 	zoneIndexCalculated := parent.zoneIndex.Clone()
 	zoneIndexCalculated.LeftShift(1)
@@ -64,15 +67,42 @@ func newChildZone(parent Zone, isRightChild bool) *Zone {
 		rightChild:        nil,
 		level:             parent.level + 1,
 		bucket:            new(KBucket),
-		randomLookupTimer: time.NewTicker(10 * time.Second), // Menos tiempo?
+		randomLookupTimer: nil,
 		randomGenerator:   parent.randomGenerator,
 	}
-	go rz.runRandomLookupTimer() // TODO: Como parar?
+
+	rz.startChecks()
+
 	return rz
 }
 
+// Create the two child zones from the parent instance
 func newChildZones(parent Zone) (*Zone, *Zone) {
 	return newChildZone(parent, false), newChildZone(parent, true)
+}
+
+// Dispose resources
+func (zone *Zone) Dispose() {
+	if zone.isLeaf() {
+		zone.stopChecks()
+		zone.bucket = nil
+	} else {
+		zone.leftChild.Dispose()
+		zone.leftChild = nil
+		zone.rightChild.Dispose()
+		zone.rightChild = nil
+	}
+}
+
+// Start all check subroutines
+func (zone *Zone) startChecks() {
+	zone.checkStopFlag = false
+	go zone.runRandomLookupTimer() // TODO: Como parar?
+}
+
+// Stop all check subroutines
+func (zone *Zone) stopChecks() {
+	zone.checkStopFlag = true
 }
 
 // Check if the object is a leaf (is not, is a branch)
@@ -97,9 +127,14 @@ func (zone *Zone) maxDepth() int {
 
 // Run a timer to do random lookup of peers
 func (zone *Zone) runRandomLookupTimer() {
+	zone.randomLookupTimer = time.NewTicker(10 * time.Second) // TODO: Less time in major levels?
 	for range zone.randomLookupTimer.C {
-		if zone.parent == nil {
+		if zone.checkStopFlag {
+			// TODO: Find other immediate way to stop
+			break
+		} else {
 			zone.onRandomLookupTimer()
+			zone.onSmallTimer() // TODO: ??
 		}
 	}
 }
@@ -108,7 +143,7 @@ func (zone *Zone) runRandomLookupTimer() {
 func (zone *Zone) onRandomLookupTimer() bool {
 	if zone.isLeaf() {
 		if zone.level < maxLevels || float32(zone.bucket.CountPeers()) >= (maxBucketSize*0.8) {
-			zone.randomLookup()
+			// TODO: Logic
 			return true
 		} else {
 			return false
@@ -116,10 +151,6 @@ func (zone *Zone) onRandomLookupTimer() bool {
 	} else {
 		return zone.leftChild.onRandomLookupTimer() && zone.rightChild.onRandomLookupTimer()
 	}
-}
-
-func (zone *Zone) randomLookup() {
-
 }
 
 func (zone *Zone) onSmallTimer() {
@@ -143,6 +174,7 @@ func (zone *Zone) canSplit() bool {
 	return false
 }
 
+// Retract and consolidate the tree branch if it is possible
 func (zone *Zone) consolidate() {
 	if zone.isLeaf() {
 		return
@@ -154,21 +186,26 @@ func (zone *Zone) consolidate() {
 			zone.rightChild.consolidate()
 		}
 		if zone.leftChild.isLeaf() && zone.rightChild.isLeaf() && zone.CountPeers() < (maxBucketSize/2) {
+			// Initialize leaf variables
 			zone.bucket = new(KBucket)
 
-			// TODO: Stop childs timers
-
+			// Stop left child, get contacts and dispose
+			zone.leftChild.stopChecks()
 			for _, currPeer := range zone.leftChild.bucket.peers {
 				zone.bucket.AddPeer(&currPeer)
 			}
+			zone.leftChild.Dispose()
 			zone.leftChild = nil
 
+			// Stop right child, get contacts and dispose
+			zone.rightChild.stopChecks()
 			for _, currPeer := range zone.rightChild.bucket.peers {
 				zone.bucket.AddPeer(&currPeer)
 			}
 			zone.rightChild = nil
 
-			go zone.runRandomLookupTimer() // TODO: Como parar?
+			// Restart checks
+			zone.startChecks()
 		}
 	}
 }
@@ -176,7 +213,7 @@ func (zone *Zone) consolidate() {
 // Split a leaf into a branch with two leafs
 func (zone *Zone) split() error {
 	if zone.canSplit() {
-		// TODO: Stop timer
+		zone.stopChecks()
 		zone.leftChild, zone.rightChild = newChildZones(*zone)
 
 		for _, currPeer := range zone.bucket.GetPeers() {
