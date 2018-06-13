@@ -146,6 +146,15 @@ func (bucket *KBucket) GetRandomPeer() (*kad.Peer, error) {
 	}
 }
 
+// Return the oldest peer in the bucket or null if not exists
+func (bucket *KBucket) GetOldestPeer() *kad.Peer {
+	if len(bucket.peers) > 0 {
+		return &bucket.peers[0]
+	} else {
+		return nil
+	}
+}
+
 func (bucket *KBucket) ContainsPeer(id types.UInt128) bool {
 	peer, err := bucket.GetPeer(id)
 	return peer != nil && err != nil
