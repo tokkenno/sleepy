@@ -11,7 +11,7 @@ import (
 
 func TestKBucket_AddPeer(t *testing.T) {
 	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer)
 
 	if kbucket.CountPeers() != 1 {
@@ -20,12 +20,12 @@ func TestKBucket_AddPeer(t *testing.T) {
 
 	peerIn := &kbucket.peers[0]
 	if !peerIn.Equal(*peer) {
-		t.Errorf("K-Bucket peer not equal, 0x%s expected, 0x%s found", peer.GetId().ToHexString(), peerIn.GetId().ToHexString())
+		t.Errorf("K-Bucket peer not equal, 0x%s expected, 0x%s found", peer.Id().ToHexString(), peerIn.Id().ToHexString())
 	}
 }
 
 func TestKBucket_AddMultiplePeer(t *testing.T) {
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	randGen := rand.New(rand.NewSource(0))
 
 	for i := 0; i < maxBucketSize; i++ {
@@ -41,7 +41,7 @@ func TestKBucket_AddMultiplePeer(t *testing.T) {
 
 func TestKBucket_Count(t *testing.T) {
 	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer)
 
 	if kbucket.CountPeers() != 1 {
@@ -65,7 +65,7 @@ func TestKBucket_Count(t *testing.T) {
 func TestKBucket_GetPeer(t *testing.T) {
 	id := types.NewUInt128FromInt(1)
 	peer := kad.NewPeer(*id)
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer)
 
 	gpeer, err := kbucket.GetPeer(*id)
@@ -83,7 +83,7 @@ func TestKBucket_GetPeerByAddr(t *testing.T) {
 	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
 	peer.SetIP(testIp, false)
 	peer.SetTCPPort(123)
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer)
 
 	tip := &net.TCPAddr{IP: testIp, Port: 123}
@@ -102,12 +102,12 @@ func TestKBucket_GetPeers(t *testing.T) {
 	peer1 := kad.NewPeer(*types.NewUInt128FromInt(2))
 	peer2 := kad.NewPeer(*types.NewUInt128FromInt(3))
 
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer0)
 	kbucket.AddPeer(peer1)
 	kbucket.AddPeer(peer2)
 
-	if len(kbucket.GetPeers()) != 3 {
+	if len(kbucket.Peers()) != 3 {
 		t.Errorf("K-Bucket must contains 3 unique peers")
 	} else if !kbucket.peers[0].Equal(*peer0) || !kbucket.peers[1].Equal(*peer1) || !kbucket.peers[2].Equal(*peer2) {
 		t.Errorf("Peers are not in correct order")
@@ -116,7 +116,7 @@ func TestKBucket_GetPeers(t *testing.T) {
 
 func TestKBucket_RemovePeer(t *testing.T) {
 	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer)
 	kbucket.RemovePeer(peer)
 
@@ -126,7 +126,7 @@ func TestKBucket_RemovePeer(t *testing.T) {
 }
 
 func TestKBucket_IsFull(t *testing.T) {
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	var peers [maxBucketSize]kad.Peer
 
 	if kbucket.IsFull() {
@@ -135,7 +135,7 @@ func TestKBucket_IsFull(t *testing.T) {
 
 	for i := 0; i < maxBucketSize; i++ {
 		newPeer := kad.NewPeer(*types.NewUInt128FromInt(i))
-		newPeer.SetIP(net.ParseIP("100.101.102." + strconv.Itoa(i)), false) // Limit of peers with the same ip
+		newPeer.SetIP(net.ParseIP("100.101.102."+strconv.Itoa(i)), false) // Limit of peers with the same ip
 		peers[i] = *newPeer
 		kbucket.AddPeer(newPeer)
 	}
@@ -149,13 +149,13 @@ func TestKBucket_SetAlive(t *testing.T) {
 	peer0 := kad.NewPeer(*types.NewUInt128FromInt(1))
 	peer1 := kad.NewPeer(*types.NewUInt128FromInt(2))
 
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer0)
 	kbucket.AddPeer(peer1)
 
-	kbucket.SetPeerAlive(*peer0.GetId())
+	kbucket.SetPeerAlive(*peer0.Id())
 
-	if len(kbucket.GetPeers()) != 2 {
+	if len(kbucket.Peers()) != 2 {
 		t.Errorf("K-Bucket must contains 2 unique peers")
 	} else if !kbucket.peers[1].Equal(*peer0) {
 		t.Errorf("Peers are not in correct order")
@@ -166,14 +166,16 @@ func TestKBucket_GetRandomPeer(t *testing.T) {
 	peer0 := kad.NewPeer(*types.NewUInt128FromInt(1))
 	peer1 := kad.NewPeer(*types.NewUInt128FromInt(2))
 
-	kbucket := &KBucket{ }
+	kbucket := &kBucket{}
 	kbucket.AddPeer(peer0)
 	kbucket.AddPeer(peer1)
 
 	count := 0
 	for i := 0; i < 100; i++ {
 		rpeer, _ := kbucket.GetRandomPeer()
-		if rpeer.Equal(*peer1) { count++ }
+		if rpeer.Equal(*peer1) {
+			count++
+		}
 	}
 
 	if count == 0 || count == 100 {
