@@ -13,17 +13,17 @@ func TestZone_AddPeer(t *testing.T) {
 	randGen := rand.New(rand.NewSource(0))
 	zone := NewRouter(routerId)
 
-	for i := 0; i < maxBucketSize + 1; i++ {
+	for i := 0; i < maxBucketSize+1; i++ {
 		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		zone.AddPeer(peer)
 
-		if zone.ContainsPeer(*peer.GetId()) {
-			peerIn, err := zone.GetPeer(*peer.GetId())
+		if zone.ContainsPeer(*peer.Id()) {
+			peerIn, err := zone.GetPeer(*peer.Id())
 			if err != nil || peerIn == nil {
 				t.Errorf("Unexpected error: %s", err.Error())
 			} else if !peerIn.Equal(*peer) {
-				t.Errorf("Z peer not equal, 0x%s expected, 0x%s found", peer.GetId().ToHexString(), peerIn.GetId().ToHexString())
+				t.Errorf("Z peer not equal, 0x%s expected, 0x%s found", peer.Id().ToHexString(), peerIn.Id().ToHexString())
 			}
 		} else {
 			t.Errorf("Zone must contains the peer, but not found.")
@@ -36,7 +36,7 @@ func TestZone_CountPeers(t *testing.T) {
 	randGen := rand.New(rand.NewSource(0))
 	zone := NewRouter(routerId)
 
-	for i := 0; i < maxBucketSize + 1; i++ {
+	for i := 0; i < maxBucketSize+1; i++ {
 		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		zone.AddPeer(peer)

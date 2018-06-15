@@ -7,48 +7,31 @@ import (
 	"time"
 	"errors"
 	"math/rand"
+	"github.com/tokkenno/sleepy/network/ed2k"
+	"github.com/tokkenno/sleepy/utils/event"
 )
 
 const (
 	maxLevels = 6
 )
 
+type PeerEventArgs struct {
+	event.Args
+	Peer *kad.Peer
+}
+
 // Zone is node inside a binary tree of k-buckets
 type Zone struct {
 	localId           types.UInt128
 	zoneIndex         types.UInt128
 	parent            *Zone
+	root              *Router
 	leftChild         *Zone
 	rightChild        *Zone
 	level             uint8
-	bucket            *KBucket
+	bucket            *kBucket
 	randomLookupTimer *time.Ticker
-	randomGenerator   *rand.Rand
-	checkStopFlag	  bool
-}
-
-// Load a router zone tree from file
-func FromFile(localId types.UInt128, path string) (*Zone, error) {
-	return nil, errors.New("not implemented yet")
-}
-
-// Create a new Zone tree (Router) from the local peer Id
-func NewRouter(id types.UInt128) *Zone {
-	rz := &Zone{
-		localId:           id,
-		zoneIndex:         *types.NewUInt128FromInt(0),
-		parent:            nil,
-		leftChild:         nil,
-		rightChild:        nil,
-		level:             0,
-		bucket:            new(KBucket),
-		randomLookupTimer: nil,
-		randomGenerator:   rand.New(rand.NewSource(time.Now().UnixNano())),
-	}
-
-	rz.startChecks()
-
-	return rz
+	checkStopFlag     bool
 }
 
 // Create a child zone from a parent instance
@@ -63,12 +46,12 @@ func newChildZone(parent Zone, isRightChild bool) *Zone {
 		localId:           parent.localId,
 		zoneIndex:         *zoneIndexCalculated,
 		parent:            &parent,
+		root:              parent.Root(),
 		leftChild:         nil,
 		rightChild:        nil,
 		level:             parent.level + 1,
-		bucket:            new(KBucket),
+		bucket:            new(kBucket),
 		randomLookupTimer: nil,
-		randomGenerator:   parent.randomGenerator,
 	}
 
 	rz.startChecks()
@@ -94,10 +77,20 @@ func (zone *Zone) Dispose() {
 	}
 }
 
+// Get the root Zone, of type Router
+func (zone *Zone) Root() *Router {
+	return zone.root
+}
+
+// Get the parent Zone in the tree
+func (zone *Zone) Parent() *Zone {
+	return zone.parent
+}
+
 // Start all check subroutines
 func (zone *Zone) startChecks() {
 	zone.checkStopFlag = false
-	go zone.runRandomLookupTimer() // TODO: Como parar?
+	go zone.runRandomLookupTimer()
 }
 
 // Stop all check subroutines
@@ -153,8 +146,42 @@ func (zone *Zone) onRandomLookupTimer() bool {
 	}
 }
 
+// Callback called every small timer halt
 func (zone *Zone) onSmallTimer() {
+	if !zone.isLeaf() {
+		return
+	}
 
+	// Remove dead entries
+	for _, peer := range zone.bucket.Peers() {
+		// If peer is not alive
+		if !peer.IsAlive() {
+			if !peer.InUse() {
+				zone.bucket.RemovePeer(&peer)
+			}
+		} else if peer.Expiration().Equal(time.Time{}) {
+			peer.SetExpiration(time.Now().Add(time.Microsecond))
+		}
+	}
+
+	oldestPeer := zone.bucket.OldestPeer()
+
+	if oldestPeer != nil {
+		// FIXME: pContact->GetType() == 4 ???
+		if !oldestPeer.IsAlive() || oldestPeer.Expiration().After(time.Now()) {
+			zone.bucket.pushToEnd(oldestPeer)
+			oldestPeer = nil
+		}
+	}
+
+	if oldestPeer != nil {
+		oldestPeer.DegradeType()
+		if oldestPeer.ProtocolVersion() >= ed2k.ProtocolVersion2 {
+			// FIXME: The version 2 or 6 send different data, see RoutingZone.cpp:937
+			router := zone.Root()
+			router.peerUpdateRequestEvent.EmitSync(zone, PeerEventArgs{Peer: oldestPeer})
+		}
+	}
 }
 
 // Check if the current leaf can be splitted in a branch with 2 leafs
@@ -187,7 +214,7 @@ func (zone *Zone) consolidate() {
 		}
 		if zone.leftChild.isLeaf() && zone.rightChild.isLeaf() && zone.CountPeers() < (maxBucketSize/2) {
 			// Initialize leaf variables
-			zone.bucket = new(KBucket)
+			zone.bucket = new(kBucket)
 
 			// Stop left child, get contacts and dispose
 			zone.leftChild.stopChecks()
@@ -216,9 +243,9 @@ func (zone *Zone) split() error {
 		zone.stopChecks()
 		zone.leftChild, zone.rightChild = newChildZones(*zone)
 
-		for _, currPeer := range zone.bucket.GetPeers() {
+		for _, currPeer := range zone.bucket.Peers() {
 			distance := currPeer.GetDistance(zone.localId)
-			if distance.GetBit(zone.GetLevel()) == 0 {
+			if distance.GetBit(zone.Level()) == 0 {
 				zone.leftChild.AddPeer(&currPeer)
 			} else {
 				zone.rightChild.AddPeer(&currPeer)
@@ -234,17 +261,17 @@ func (zone *Zone) split() error {
 }
 
 // Get the zone depth on the router tree
-func (zone *Zone) GetLevel() int {
+func (zone *Zone) Level() int {
 	return int(zone.level)
 }
 
 // Get the zone max depth from the most length branch
-func (zone *Zone) GetMaxDepth() int {
+func (zone *Zone) MaxDepth() int {
 	if zone.isLeaf() {
 		return 0
 	} else {
-		left := zone.leftChild.GetMaxDepth()
-		right := zone.rightChild.GetMaxDepth()
+		left := zone.leftChild.MaxDepth()
+		right := zone.rightChild.MaxDepth()
 		if left > right {
 			return left
 		} else {
@@ -253,6 +280,7 @@ func (zone *Zone) GetMaxDepth() int {
 	}
 }
 
+// Add peer to the route table
 func (zone *Zone) AddPeer(peer *kad.Peer) error {
 	// TODO: Filter IPs and protocol versions
 
@@ -264,8 +292,8 @@ func (zone *Zone) AddPeer(peer *kad.Peer) error {
 			zone.rightChild.AddPeer(peer)
 		}
 	} else {
-		if !zone.localId.Equal(*peer.GetId()) {
-			locPeer, err := zone.bucket.GetPeer(*peer.GetId())
+		if !zone.localId.Equal(*peer.Id()) {
+			locPeer, err := zone.bucket.GetPeer(*peer.Id())
 
 			if err == nil && locPeer != nil {
 				// If the peer already exists, update
@@ -296,7 +324,7 @@ func (zone *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
 		return zone.bucket.GetPeer(id)
 	} else {
 		distance := types.Xor(zone.localId, id)
-		if distance.GetBit(zone.GetLevel()) == 0 {
+		if distance.GetBit(zone.Level()) == 0 {
 			return zone.leftChild.GetPeer(id)
 		} else {
 			return zone.rightChild.GetPeer(id)
@@ -337,34 +365,34 @@ func (zone *Zone) GetRandomPeer() (*kad.Peer, error) {
 }
 
 // Get a slice of all peers
-func (zone *Zone) GetAllPeers() []kad.Peer {
+func (zone *Zone) Peers() []kad.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.peers
 	} else {
-		return append(zone.leftChild.GetAllPeers(), zone.rightChild.GetAllPeers()...)
+		return append(zone.leftChild.Peers(), zone.rightChild.Peers()...)
 	}
 }
 
-// ¿?
+// Obtain peers from a random bucket located at least at the [depth] indicated on the Zone tree
 func (zone *Zone) GetDepthPeers(depth int) []kad.Peer {
 	if zone.isLeaf() {
-		return zone.bucket.peers
+		return zone.bucket.Peers()
 	} else if depth <= 0 {
-		return zone.GetRandomKBucketPeers()
+		return zone.GetRandomBucketPeers()
 	} else {
 		return append(zone.leftChild.GetDepthPeers(depth-1), zone.rightChild.GetDepthPeers(depth-1)...)
 	}
 }
 
 // Get the peers from a random child bucket
-func (zone *Zone) GetRandomKBucketPeers() []kad.Peer {
+func (zone *Zone) GetRandomBucketPeers() []kad.Peer {
 	if zone.isLeaf() {
-		return zone.bucket.peers
+		return zone.bucket.Peers()
 	} else {
-		if zone.randomGenerator.Intn(1) == 0 {
-			return zone.leftChild.GetRandomKBucketPeers()
+		if zone.Root().randomGenerator.Intn(1) == 0 {
+			return zone.leftChild.GetRandomBucketPeers()
 		} else {
-			return zone.rightChild.GetRandomKBucketPeers()
+			return zone.rightChild.GetRandomBucketPeers()
 		}
 	}
 }
