@@ -392,6 +392,29 @@ func (zone *Zone) Peers() []*kad.Peer {
 	}
 }
 
+// Get a slice with the [maxPeers] top peers.
+func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []*kad.Peer {
+	var peers []*kad.Peer
+
+	if zone.isLeaf() {
+		peers = zone.bucket.Peers()
+	} else if maxDepth <= 0 {
+		peers = zone.GetRandomBucketPeers()
+	} else {
+		peers = zone.leftChild.GetTopPeers(maxPeers, maxDepth-1)
+
+		if len(peers) < maxPeers {
+			peers = append(peers, zone.rightChild.GetTopPeers(maxPeers - len(peers), maxDepth-1)...)
+		}
+	}
+
+	if len(peers) < maxPeers {
+		return peers
+	} else {
+		return peers[:maxPeers]
+	}
+}
+
 // Obtain peers from a random bucket located at least at the [depth] indicated on the Zone tree
 func (zone *Zone) GetDepthPeers(depth int) []*kad.Peer {
 	if zone.isLeaf() {
