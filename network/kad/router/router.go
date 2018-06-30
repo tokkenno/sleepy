@@ -13,6 +13,7 @@ type Router struct {
 	Zone
 	randomGenerator        *rand.Rand
 	peerUpdateRequestEvent *event.Emitter
+	peerLookupRequestEvent *event.Emitter
 }
 
 // Load a router zone tree from file
@@ -35,6 +36,7 @@ func NewRouter(id types.UInt128) *Router {
 		},
 		randomGenerator:        rand.New(rand.NewSource(time.Now().UnixNano())),
 		peerUpdateRequestEvent: event.NewEvent(),
+		peerLookupRequestEvent: event.NewEvent(),
 	}
 
 	rz.Zone.root = rz
@@ -44,9 +46,14 @@ func NewRouter(id types.UInt128) *Router {
 	return rz
 }
 
-// Event fired when a peer need update his information
+// Event fired when the router need update a peer information
 func (router *Router) PeerUpdateRequestEvent() *event.Handler {
 	return router.peerUpdateRequestEvent.GetHandler()
+}
+
+// Event fired when the router need lookup a peer
+func (router *Router) PeerLookupRequestEvent() *event.Handler {
+	return router.peerLookupRequestEvent.GetHandler()
 }
 
 func (router *Router) SaveFile(path string) error {

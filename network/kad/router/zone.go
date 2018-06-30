@@ -7,8 +7,8 @@ import (
 	"time"
 	"errors"
 	"math/rand"
-	"github.com/tokkenno/sleepy/network/ed2k"
 	"github.com/tokkenno/sleepy/utils/event"
+	"github.com/tokkenno/sleepy/network/ed2k"
 )
 
 const (
@@ -18,6 +18,11 @@ const (
 type PeerEventArgs struct {
 	event.Args
 	Peer *kad.Peer
+}
+
+type PeerIdEventArgs struct {
+	event.Args
+	Id types.UInt128
 }
 
 // Zone is node inside a binary tree of k-buckets
@@ -30,6 +35,7 @@ type Zone struct {
 	rightChild        *Zone
 	level             uint8
 	bucket            *kBucket
+	updatePeersTimer  *time.Ticker
 	randomLookupTimer *time.Ticker
 	checkStopFlag     bool
 }
@@ -51,6 +57,7 @@ func newChildZone(parent Zone, isRightChild bool) *Zone {
 		rightChild:        nil,
 		level:             parent.level + 1,
 		bucket:            new(kBucket),
+		updatePeersTimer:  nil,
 		randomLookupTimer: nil,
 	}
 
@@ -90,6 +97,7 @@ func (zone *Zone) Parent() *Zone {
 // Start all check subroutines
 func (zone *Zone) startChecks() {
 	zone.checkStopFlag = false
+	go zone.runUpdatePeersTimer()
 	go zone.runRandomLookupTimer()
 }
 
@@ -120,66 +128,77 @@ func (zone *Zone) maxDepth() int {
 
 // Run a timer to do random lookup of peers
 func (zone *Zone) runRandomLookupTimer() {
-	zone.randomLookupTimer = time.NewTicker(10 * time.Second) // TODO: Less time in major levels?
+	zone.randomLookupTimer = time.NewTicker(10 * time.Second)
 	for range zone.randomLookupTimer.C {
 		if zone.checkStopFlag {
 			// TODO: Find other immediate way to stop
 			break
 		} else {
 			zone.onRandomLookupTimer()
-			zone.onSmallTimer() // TODO: ??
 		}
 	}
 }
 
-// Handle the RandomLookup timer and run a lookup of a random peer inside each leaf
-func (zone *Zone) onRandomLookupTimer() bool {
-	if zone.isLeaf() {
-		if zone.level < maxLevels || float32(zone.bucket.CountPeers()) >= (maxBucketSize*0.8) {
-			// TODO: Logic
-			return true
+// Handle the RandomLookup timer and run a lookup of a random peer inside each leaf (onBigTimer)
+func (zone *Zone) onRandomLookupTimer() {
+	if zone.isLeaf() && zone.level < maxLevels || float32(zone.bucket.CountPeers()) >= (maxBucketSize*0.8) {
+		// Generate a random ID inside this zone
+		randId := zone.zoneIndex.Clone()
+		randId.LeftShift(uint(zone.level))
+		randId.Xor(zone.localId)
+
+		// Emit event. The KAD client will insert the peer if it finds it
+		zone.Root().peerLookupRequestEvent.Emit(zone, PeerIdEventArgs{Id: *randId})
+	}
+}
+
+// Run a timer to do periodic check of the peers
+func (zone *Zone) runUpdatePeersTimer() {
+	idLow, _ := zone.localId.ToUInt64()
+	zone.updatePeersTimer = time.NewTicker(time.Duration(idLow) * time.Second)
+	for range zone.updatePeersTimer.C {
+		if zone.checkStopFlag {
+			// TODO: Find other immediate way to stop
+			break
 		} else {
-			return false
+			zone.onUpdatePeersTimer()
 		}
-	} else {
-		return zone.leftChild.onRandomLookupTimer() && zone.rightChild.onRandomLookupTimer()
 	}
 }
 
-// Callback called every small timer halt
-func (zone *Zone) onSmallTimer() {
-	if !zone.isLeaf() {
-		return
-	}
-
-	// Remove dead entries
-	for _, peer := range zone.bucket.Peers() {
-		// If peer is not alive
-		if !peer.IsAlive() {
-			if !peer.InUse() {
-				zone.bucket.RemovePeer(peer)
+// Handle the UpdatePeers timer and run a check and update of the peers inside each leaf (onSmallTimer)
+func (zone *Zone) onUpdatePeersTimer() {
+	if zone.isLeaf() {
+		// Remove dead entries
+		for _, peer := range zone.bucket.Peers() {
+			// If peer is not alive
+			if !peer.IsAlive() {
+				if !peer.InUse() {
+					zone.bucket.RemovePeer(peer)
+				}
+			} else if peer.Expiration().Equal(time.Time{}) {
+				peer.SetExpiration(time.Now().Add(time.Microsecond))
 			}
-		} else if peer.Expiration().Equal(time.Time{}) {
-			peer.SetExpiration(time.Now().Add(time.Microsecond))
 		}
-	}
 
-	oldestPeer := zone.bucket.OldestPeer()
+		// Update the oldest peer
+		oldestPeer := zone.bucket.OldestPeer()
 
-	if oldestPeer != nil {
-		// FIXME: pContact->GetType() == 4 ???
-		if !oldestPeer.IsAlive() || oldestPeer.Expiration().After(time.Now()) {
-			zone.bucket.pushToEnd(oldestPeer)
-			oldestPeer = nil
+		if oldestPeer != nil {
+			// FIXME: pContact->GetType() == 4 ???
+			if !oldestPeer.IsAlive() || oldestPeer.Expiration().After(time.Now()) {
+				zone.bucket.pushToEnd(oldestPeer)
+				oldestPeer = nil
+			}
 		}
-	}
 
-	if oldestPeer != nil {
-		oldestPeer.DegradeType()
-		if oldestPeer.ProtocolVersion() >= ed2k.ProtocolVersion2 {
-			// FIXME: The version 2 or 6 send different data, see RoutingZone.cpp:937
-			router := zone.Root()
-			router.peerUpdateRequestEvent.EmitSync(zone, PeerEventArgs{Peer: oldestPeer})
+		if oldestPeer != nil {
+			oldestPeer.DegradeType()
+			if oldestPeer.ProtocolVersion() >= ed2k.ProtocolVersion2 {
+				// FIXME: The version 2 or 6 send different data, see RoutingZone.cpp:937
+				router := zone.Root()
+				router.peerUpdateRequestEvent.EmitSync(zone, PeerEventArgs{Peer: oldestPeer})
+			}
 		}
 	}
 }
@@ -410,7 +429,7 @@ func (zone *Zone) GetClosestPeers(to types.UInt128, max int) []*kad.Peer {
 		peers := children[rPos].GetClosestPeers(to, max)
 		if len(peers) < max {
 			// If it has insufficient, get any from the other branch
-			return append(peers, children[rPos^1].GetClosestPeers(to, max - len(peers))...)
+			return append(peers, children[rPos^1].GetClosestPeers(to, max-len(peers))...)
 		} else {
 			return peers
 		}
