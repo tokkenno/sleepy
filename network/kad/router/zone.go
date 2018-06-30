@@ -157,7 +157,7 @@ func (zone *Zone) onSmallTimer() {
 		// If peer is not alive
 		if !peer.IsAlive() {
 			if !peer.InUse() {
-				zone.bucket.RemovePeer(&peer)
+				zone.bucket.RemovePeer(peer)
 			}
 		} else if peer.Expiration().Equal(time.Time{}) {
 			peer.SetExpiration(time.Now().Add(time.Microsecond))
@@ -219,7 +219,7 @@ func (zone *Zone) consolidate() {
 			// Stop left child, get contacts and dispose
 			zone.leftChild.stopChecks()
 			for _, currPeer := range zone.leftChild.bucket.peers {
-				zone.bucket.AddPeer(&currPeer)
+				zone.bucket.AddPeer(currPeer)
 			}
 			zone.leftChild.Dispose()
 			zone.leftChild = nil
@@ -227,7 +227,7 @@ func (zone *Zone) consolidate() {
 			// Stop right child, get contacts and dispose
 			zone.rightChild.stopChecks()
 			for _, currPeer := range zone.rightChild.bucket.peers {
-				zone.bucket.AddPeer(&currPeer)
+				zone.bucket.AddPeer(currPeer)
 			}
 			zone.rightChild = nil
 
@@ -246,9 +246,9 @@ func (zone *Zone) split() error {
 		for _, currPeer := range zone.bucket.Peers() {
 			distance := currPeer.GetDistance(zone.localId)
 			if distance.GetBit(zone.Level()) == 0 {
-				zone.leftChild.AddPeer(&currPeer)
+				zone.leftChild.AddPeer(currPeer)
 			} else {
-				zone.rightChild.AddPeer(&currPeer)
+				zone.rightChild.AddPeer(currPeer)
 			}
 		}
 
@@ -365,7 +365,7 @@ func (zone *Zone) GetRandomPeer() (*kad.Peer, error) {
 }
 
 // Get a slice of all peers
-func (zone *Zone) Peers() []kad.Peer {
+func (zone *Zone) Peers() []*kad.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.peers
 	} else {
@@ -374,7 +374,7 @@ func (zone *Zone) Peers() []kad.Peer {
 }
 
 // Obtain peers from a random bucket located at least at the [depth] indicated on the Zone tree
-func (zone *Zone) GetDepthPeers(depth int) []kad.Peer {
+func (zone *Zone) GetDepthPeers(depth int) []*kad.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.Peers()
 	} else if depth <= 0 {
@@ -385,7 +385,7 @@ func (zone *Zone) GetDepthPeers(depth int) []kad.Peer {
 }
 
 // Get the peers from a random child bucket
-func (zone *Zone) GetRandomBucketPeers() []kad.Peer {
+func (zone *Zone) GetRandomBucketPeers() []*kad.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.Peers()
 	} else {
@@ -393,6 +393,26 @@ func (zone *Zone) GetRandomBucketPeers() []kad.Peer {
 			return zone.leftChild.GetRandomBucketPeers()
 		} else {
 			return zone.rightChild.GetRandomBucketPeers()
+		}
+	}
+}
+
+// Get the closest [max] peers respect the [to] id.
+func (zone *Zone) GetClosestPeers(to types.UInt128, max int) []*kad.Peer {
+	if zone.isLeaf() {
+		// If leaf, get from bucket
+		return zone.bucket.GetClosestPeers(to, max)
+	} else {
+		children := [2]*Zone{zone.leftChild, zone.rightChild}
+		rPos := to.GetBit(int(zone.level))
+
+		// Get from the closest branch
+		peers := children[rPos].GetClosestPeers(to, max)
+		if len(peers) < max {
+			// If it has insufficient, get any from the other branch
+			return append(peers, children[rPos^1].GetClosestPeers(to, max - len(peers))...)
+		} else {
+			return peers
 		}
 	}
 }
