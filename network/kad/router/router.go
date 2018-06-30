@@ -6,6 +6,7 @@ import (
 	"time"
 	"github.com/tokkenno/sleepy/utils/event"
 	"math/rand"
+	"github.com/tokkenno/sleepy/network/kad"
 )
 
 // The router is the special zone in the root of a zone tree
@@ -58,4 +59,10 @@ func (router *Router) PeerLookupRequestEvent() *event.Handler {
 
 func (router *Router) SaveFile(path string) error {
 	return errors.New("not implemented yet")
+}
+
+// Get a list of peers of [max] size prepared to do a bootstrap
+func (router *Router) GetBootstrapPeers(max int) []*kad.Peer {
+	const BootstrapDepth = 5 // Defined as LOG_BASE_EXPONENT constant in kademlia/defines.h
+	return router.GetTopPeers(max, BootstrapDepth)
 }
