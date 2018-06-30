@@ -184,7 +184,9 @@ func (peer *Peer) DegradeType() {
 	}
 
 	peer.typeUpdated = time.Now()
-	if peer.typeCode < ExpiredPeerType { peer.typeCode++ }
+	if peer.typeCode < ExpiredPeerType {
+		peer.typeCode++
+	}
 }
 
 // Update peer type based on internal times
@@ -233,4 +235,17 @@ func (peer *Peer) Update(otherPeer *Peer) error {
 	} else {
 		return errors.New("the peer information only can be updated with the information of other peer with the same id")
 	}
+}
+
+// Filter a peer slice with a evaluation function
+func Filter(peers []*Peer, f func(*Peer) bool) []*Peer {
+	filtered := make([]*Peer, 0)
+
+	for _, peer := range peers {
+		if f(peer) {
+			filtered = append(filtered, peer)
+		}
+	}
+
+	return filtered
 }
