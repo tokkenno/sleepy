@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/reimashi/sleepy/network/kad"
 	"bufio"
-	"os"
 	"fmt"
+	"github.com/tokkenno/sleepy/network/kad"
+	"os"
 )
 
 func main() {
