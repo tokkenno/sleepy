@@ -1,17 +1,17 @@
 package types
 
 import (
-	"errors"
 	"encoding/binary"
-	"strconv"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 )
 
 const (
-	lessThan = -1
-	equal = 0
+	lessThan    = -1
+	equal       = 0
 	greaterThan = 1
 )
 
@@ -24,9 +24,9 @@ func NewUInt128(low uint64, high uint64) *UInt128 {
 	return &UInt128{lo: low, hi: high}
 }
 
-func NewUInt128FromInt(val int) *UInt128  {
+func NewUInt128FromInt(val int) *UInt128 {
 	if val < 0 {
-		return NewUInt128(uint64(^uint64(0) - uint64(-val-1)), ^uint64(0))
+		return NewUInt128(uint64(^uint64(0)-uint64(-val-1)), ^uint64(0))
 	} else {
 		return NewUInt128(uint64(val), 0)
 	}
@@ -44,7 +44,7 @@ func NewUInt128FromByteArray(data []byte) (*UInt128, error) {
 	}
 
 	if len(data) < 16 {
-		data = append(make([]byte, 16 - len(data)), data...)
+		data = append(make([]byte, 16-len(data)), data...)
 	}
 
 	num := new(UInt128)
@@ -62,7 +62,7 @@ func (uint128 *UInt128) Clone() *UInt128 {
 }
 
 // Compare if two UInt128 has equals, greater or less in value
-func (uint128 *UInt128) Compare(o UInt128) int {
+func (uint128 *UInt128) Compare(o *UInt128) int {
 	if uint128.hi < o.hi {
 		return lessThan
 	} else if uint128.hi > o.hi {
@@ -77,7 +77,7 @@ func (uint128 *UInt128) Compare(o UInt128) int {
 }
 
 // Check if two UInt128 has same value
-func (uint128 *UInt128) Equal(o UInt128) bool {
+func (uint128 *UInt128) Equal(o *UInt128) bool {
 	return uint128.hi == o.hi && uint128.lo == o.lo
 }
 
@@ -93,46 +93,46 @@ func (uint128 *UInt128) GetBit(position int) uint8 {
 }
 
 // Calculate the binary operation AND between two UInt128
-func And(val1 UInt128, val2 UInt128) *UInt128 {
+func And(val1 *UInt128, val2 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.And(val2)
 	return newValue
 }
 
 // Calculate the binary operation AND between the actual number and other
-func (uint128 *UInt128) And(o UInt128) {
+func (uint128 *UInt128) And(o *UInt128) {
 	uint128.hi &= o.hi
 	uint128.lo &= o.lo
 }
 
 // Calculate the binary operation OR between two UInt128
-func Or(val1 UInt128, val2 UInt128) *UInt128 {
+func Or(val1 *UInt128, val2 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.Or(val2)
 	return newValue
 }
 
 // Calculate the binary operation OR between the actual number and other
-func (uint128 *UInt128) Or(o UInt128) {
+func (uint128 *UInt128) Or(o *UInt128) {
 	uint128.hi |= o.hi
 	uint128.lo |= o.lo
 }
 
 // Calculate the binary operation XOR between two UInt128
-func Xor(val1 UInt128, val2 UInt128) *UInt128 {
+func Xor(val1 *UInt128, val2 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.Xor(val2)
 	return newValue
 }
 
 // Calculate the binary operation XOR between the actual number and other
-func (uint128 *UInt128) Xor(o UInt128) {
+func (uint128 *UInt128) Xor(o *UInt128) {
 	uint128.hi ^= o.hi
 	uint128.lo ^= o.lo
 }
 
 // Calculate the binary operation NOT for an UInt128 number
-func Not(val1 UInt128) *UInt128 {
+func Not(val1 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.Not()
 	return newValue
@@ -145,14 +145,14 @@ func (uint128 *UInt128) Not() {
 }
 
 // Calculate the arithmetic operation ADD between two UInt128
-func Add(val1 UInt128, val2 UInt128) *UInt128 {
+func Add(val1 *UInt128, val2 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.Add(val2)
 	return newValue
 }
 
 // Calculate the arithmetic operation ADD between the actual number and other
-func (uint128 *UInt128) Add(o UInt128) {
+func (uint128 *UInt128) Add(o *UInt128) {
 	carry := uint128.lo
 	uint128.lo += o.lo
 	uint128.hi += o.hi
@@ -163,14 +163,14 @@ func (uint128 *UInt128) Add(o UInt128) {
 }
 
 // Calculate the arithmetic operation SUB (subtract) between two UInt128
-func Sub(val1 UInt128, val2 UInt128) *UInt128 {
+func Sub(val1 *UInt128, val2 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.Sub(val2)
 	return newValue
 }
 
 // Calculate the arithmetic operation SUB (subtract) between the actual number and other
-func (uint128 *UInt128) Sub(num2 UInt128) {
+func (uint128 *UInt128) Sub(num2 *UInt128) {
 	var AI, BI, R big.Int
 	AI.SetBytes(uint128.ToBytes())
 	BI.SetBytes(num2.ToBytes())
@@ -182,14 +182,14 @@ func (uint128 *UInt128) Sub(num2 UInt128) {
 }
 
 // Calculate the arithmetic operation MUL (product) between two UInt128
-func Mul(val1 UInt128, val2 UInt128) *UInt128 {
+func Mul(val1 *UInt128, val2 *UInt128) *UInt128 {
 	newValue := val1.Clone()
 	newValue.Mul(val2)
 	return newValue
 }
 
 // Calculate the arithmetic operation MUL (product) between the actual number and other
-func (uint128 *UInt128) Mul(num2 UInt128) {
+func (uint128 *UInt128) Mul(num2 *UInt128) {
 	var AI, BI, R big.Int
 	AI.SetBytes(uint128.ToBytes())
 	BI.SetBytes(num2.ToBytes())
@@ -201,15 +201,15 @@ func (uint128 *UInt128) Mul(num2 UInt128) {
 }
 
 // Calculate the arithmetic operation DIVMOD (division & modulus) between two UInt128
-func DivMod(val1 UInt128, val2 UInt128) (newValue *UInt128, mod *UInt128, err error) {
+func DivMod(val1 *UInt128, val2 *UInt128) (newValue *UInt128, mod *UInt128, err error) {
 	newValue = val1.Clone()
 	mod, err = newValue.DivMod(val2)
 	return
 }
 
 // Calculate the arithmetic operation DIVMOD (division & modulus) between the actual number and other
-func (uint128 *UInt128) DivMod(denominator UInt128) (mod *UInt128, err error) {
-	if denominator.Equal(*NewUInt128FromInt(0)) {
+func (uint128 *UInt128) DivMod(denominator *UInt128) (mod *UInt128, err error) {
+	if denominator.Equal(NewUInt128FromInt(0)) {
 		mod, err = nil, errors.New("divide by 0")
 	} else {
 		var AI, BI, R, Q big.Int
@@ -289,12 +289,20 @@ func (uint128 *UInt128) ToHexString() string {
 	hiStr := strconv.FormatUint(uint128.hi, 16)
 
 	var loFill []rune
-	if len(loStr) < 16 { loFill = make([]rune, 16 - len(loStr)) }
-	for i := range loFill { loFill[i] = '\u0030' }
+	if len(loStr) < 16 {
+		loFill = make([]rune, 16-len(loStr))
+	}
+	for i := range loFill {
+		loFill[i] = '\u0030'
+	}
 
 	var hiFill []rune
-	if len(hiFill) < 16 { hiFill = make([]rune, 16 - len(hiStr)) }
-	for i := range hiFill { hiFill[i] = '\u0030' }
+	if len(hiFill) < 16 {
+		hiFill = make([]rune, 16-len(hiStr))
+	}
+	for i := range hiFill {
+		hiFill[i] = '\u0030'
+	}
 
 	return string(hiFill) + hiStr + string(loFill) + loStr
 }
@@ -305,12 +313,20 @@ func (uint128 *UInt128) ToBitString() string {
 	hiStr := fmt.Sprintf("%b", uint128.hi)
 
 	var loFill []rune
-	if len(loStr) < 64 { loFill = make([]rune, 64 - len(loStr)) }
-	for i := range loFill { loFill[i] = '\u0030' }
+	if len(loStr) < 64 {
+		loFill = make([]rune, 64-len(loStr))
+	}
+	for i := range loFill {
+		loFill[i] = '\u0030'
+	}
 
 	var hiFill []rune
-	if len(hiFill) < 64 { hiFill = make([]rune, 64 - len(hiStr)) }
-	for i := range hiFill { hiFill[i] = '\u0030' }
+	if len(hiFill) < 64 {
+		hiFill = make([]rune, 64-len(hiStr))
+	}
+	for i := range hiFill {
+		hiFill[i] = '\u0030'
+	}
 
 	return string(hiFill) + hiStr + string(loFill) + loStr
 }
@@ -331,8 +347,8 @@ func (uint128 *UInt128) ToBaseString(base int) (string, error) {
 	radix := NewUInt128FromInt(base)
 	ii := uint128.Clone()
 
-	for !ii.Equal(*zero) {
-		tmpRemainder, _ := ii.DivMod(*radix)
+	for !ii.Equal(zero) {
+		tmpRemainder, _ := ii.DivMod(radix)
 		remainder, _ := tmpRemainder.ToInt()
 		character := "0123456789"[remainder]
 		numStr = string(character) + numStr;

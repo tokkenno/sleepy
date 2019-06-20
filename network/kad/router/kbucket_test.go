@@ -1,179 +1,195 @@
 package router
 
 import (
-	"testing"
 	"github.com/tokkenno/sleepy/network/kad"
 	"github.com/tokkenno/sleepy/types"
+	"math/rand"
 	"net"
 	"strconv"
-	"math/rand"
+	"testing"
 )
 
 func TestKBucket_AddPeer(t *testing.T) {
-	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer)
+	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	kBucket := &kBucket{}
+	err := kBucket.AddPeer(peer)
 
-	if kbucket.CountPeers() != 1 {
-		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.CountPeers())
+	if err != nil {
+		t.Errorf("Error when add peer to K-Bucket")
 	}
 
-	peerIn := &kbucket.peers[0]
-	if !peerIn.Equal(*peer) {
+	if kBucket.CountPeers() != 1 {
+		t.Errorf("K-Bucket must contains a unique peer, %d found", kBucket.CountPeers())
+	}
+
+	peerIn := kBucket.peers[0]
+	if !peerIn.Equal(peer) {
 		t.Errorf("K-Bucket peer not equal, 0x%s expected, 0x%s found", peer.Id().ToHexString(), peerIn.Id().ToHexString())
 	}
 }
 
 func TestKBucket_AddMultiplePeer(t *testing.T) {
-	kbucket := &kBucket{}
+	kBucket := &kBucket{}
 	randGen := rand.New(rand.NewSource(0))
 
 	for i := 0; i < maxBucketSize; i++ {
-		peer := kad.NewPeer(*types.NewUInt128FromInt(i))
+		peer := kad.NewPeer(types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
-		kbucket.AddPeer(peer)
+		kBucket.AddPeer(peer)
 
-		if kbucket.CountPeers() != i+1 {
-			t.Errorf("K-Bucket must contains %d peers, %d found", i+1, kbucket.CountPeers())
+		if kBucket.CountPeers() != i+1 {
+			t.Errorf("K-Bucket must contains %d peers, %d found", i+1, kBucket.CountPeers())
 		}
 	}
 }
 
 func TestKBucket_Count(t *testing.T) {
-	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer)
+	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer)
 
-	if kbucket.CountPeers() != 1 {
-		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.CountPeers())
+	if kBucket.CountPeers() != 1 {
+		t.Errorf("K-Bucket must contains a unique peer, %d found", kBucket.CountPeers())
 	}
 
-	kbucket.AddPeer(peer)
+	kBucket.AddPeer(peer)
 
-	if kbucket.CountPeers() != 1 {
-		t.Errorf("K-Bucket must contains a unique peer, %d found", kbucket.CountPeers())
+	if kBucket.CountPeers() != 1 {
+		t.Errorf("K-Bucket must contains a unique peer, %d found", kBucket.CountPeers())
 	}
 
-	otherPeer := kad.NewPeer(*types.NewUInt128FromInt(2))
-	kbucket.AddPeer(otherPeer)
+	otherPeer := kad.NewPeer(types.NewUInt128FromInt(2))
+	kBucket.AddPeer(otherPeer)
 
-	if kbucket.CountPeers() != 2 {
-		t.Errorf("K-Bucket must contains two unique peer, %d found", kbucket.CountPeers())
+	if kBucket.CountPeers() != 2 {
+		t.Errorf("K-Bucket must contains two unique peer, %d found", kBucket.CountPeers())
 	}
 }
 
 func TestKBucket_GetPeer(t *testing.T) {
 	id := types.NewUInt128FromInt(1)
-	peer := kad.NewPeer(*id)
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer)
+	peer := kad.NewPeer(id)
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer)
 
-	gpeer, err := kbucket.GetPeer(*id)
+	gpeer, err := kBucket.GetPeer(id)
 	if err != nil {
 		t.Errorf(err.Error())
 	} else if gpeer == nil {
 		t.Errorf("Peer not found in K-Bucket")
-	} else if !gpeer.Equal(*peer) {
+	} else if !gpeer.Equal(peer) {
 		t.Errorf("Peer retrieved is distinct than the original")
 	}
 }
 
 func TestKBucket_GetPeerByAddr(t *testing.T) {
 	testIp := net.ParseIP("100.101.102.103")
-	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
+	peer := kad.NewPeer(types.NewUInt128FromInt(1))
 	peer.SetIP(testIp, false)
 	peer.SetTCPPort(123)
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer)
+	peer.SetUDPPort(321)
+
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer)
 
 	tip := &net.TCPAddr{IP: testIp, Port: 123}
-	gpeer, err := kbucket.GetPeerByAddr(tip)
+	gPeer, err := kBucket.GetPeerByAddr(tip)
 	if err != nil {
 		t.Errorf(err.Error())
-	} else if gpeer == nil {
+	} else if gPeer == nil {
 		t.Errorf("Peer not found in K-Bucket")
-	} else if !gpeer.Equal(*peer) {
+	} else if !gPeer.Equal(peer) {
+		t.Errorf("Peer retrieved is distinct than the original")
+	}
+
+	uip := &net.UDPAddr{IP: testIp, Port: 321}
+	gPeer, err = kBucket.GetPeerByAddr(uip)
+	if err != nil {
+		t.Errorf(err.Error())
+	} else if gPeer == nil {
+		t.Errorf("Peer not found in K-Bucket")
+	} else if !gPeer.Equal(peer) {
 		t.Errorf("Peer retrieved is distinct than the original")
 	}
 }
 
 func TestKBucket_GetPeers(t *testing.T) {
-	peer0 := kad.NewPeer(*types.NewUInt128FromInt(1))
-	peer1 := kad.NewPeer(*types.NewUInt128FromInt(2))
-	peer2 := kad.NewPeer(*types.NewUInt128FromInt(3))
+	peer0 := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer1 := kad.NewPeer(types.NewUInt128FromInt(2))
+	peer2 := kad.NewPeer(types.NewUInt128FromInt(3))
 
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer0)
-	kbucket.AddPeer(peer1)
-	kbucket.AddPeer(peer2)
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer0)
+	kBucket.AddPeer(peer1)
+	kBucket.AddPeer(peer2)
 
-	if len(kbucket.Peers()) != 3 {
+	if len(kBucket.Peers()) != 3 {
 		t.Errorf("K-Bucket must contains 3 unique peers")
-	} else if !kbucket.peers[0].Equal(*peer0) || !kbucket.peers[1].Equal(*peer1) || !kbucket.peers[2].Equal(*peer2) {
+	} else if !kBucket.peers[0].Equal(peer0) || !kBucket.peers[1].Equal(peer1) || !kBucket.peers[2].Equal(peer2) {
 		t.Errorf("Peers are not in correct order")
 	}
 }
 
 func TestKBucket_RemovePeer(t *testing.T) {
-	peer := kad.NewPeer(*types.NewUInt128FromInt(1))
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer)
-	kbucket.RemovePeer(peer)
+	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer)
+	kBucket.RemovePeer(peer)
 
-	if kbucket.CountPeers() != 0 {
-		t.Errorf("K-Bucket must be empty, but contains %v elements", kbucket.CountPeers())
+	if kBucket.CountPeers() != 0 {
+		t.Errorf("K-Bucket must be empty, but contains %v elements", kBucket.CountPeers())
 	}
 }
 
 func TestKBucket_IsFull(t *testing.T) {
-	kbucket := &kBucket{}
+	kBucket := &kBucket{}
 	var peers [maxBucketSize]kad.Peer
 
-	if kbucket.IsFull() {
+	if kBucket.IsFull() {
 		t.Errorf("K-Bucket must not be full")
 	}
 
 	for i := 0; i < maxBucketSize; i++ {
-		newPeer := kad.NewPeer(*types.NewUInt128FromInt(i))
+		newPeer := kad.NewPeer(types.NewUInt128FromInt(i))
 		newPeer.SetIP(net.ParseIP("100.101.102."+strconv.Itoa(i)), false) // Limit of peers with the same ip
 		peers[i] = *newPeer
-		kbucket.AddPeer(newPeer)
+		kBucket.AddPeer(newPeer)
 	}
 
-	if !kbucket.IsFull() {
-		t.Errorf("K-Bucket must be full (%v) but contains %v", maxBucketSize, kbucket.CountPeers())
+	if !kBucket.IsFull() {
+		t.Errorf("K-Bucket must be full (%v) but contains %v", maxBucketSize, kBucket.CountPeers())
 	}
 }
 
 func TestKBucket_SetAlive(t *testing.T) {
-	peer0 := kad.NewPeer(*types.NewUInt128FromInt(1))
-	peer1 := kad.NewPeer(*types.NewUInt128FromInt(2))
+	peer0 := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer1 := kad.NewPeer(types.NewUInt128FromInt(2))
 
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer0)
-	kbucket.AddPeer(peer1)
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer0)
+	kBucket.AddPeer(peer1)
 
-	kbucket.SetPeerAlive(*peer0.Id())
+	kBucket.SetPeerAlive(peer0.Id())
 
-	if len(kbucket.Peers()) != 2 {
+	if len(kBucket.Peers()) != 2 {
 		t.Errorf("K-Bucket must contains 2 unique peers")
-	} else if !kbucket.peers[1].Equal(*peer0) {
+	} else if !kBucket.peers[1].Equal(peer0) {
 		t.Errorf("Peers are not in correct order")
 	}
 }
 
 func TestKBucket_GetRandomPeer(t *testing.T) {
-	peer0 := kad.NewPeer(*types.NewUInt128FromInt(1))
-	peer1 := kad.NewPeer(*types.NewUInt128FromInt(2))
+	peer0 := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer1 := kad.NewPeer(types.NewUInt128FromInt(2))
 
-	kbucket := &kBucket{}
-	kbucket.AddPeer(peer0)
-	kbucket.AddPeer(peer1)
+	kBucket := &kBucket{}
+	kBucket.AddPeer(peer0)
+	kBucket.AddPeer(peer1)
 
 	count := 0
 	for i := 0; i < 100; i++ {
-		rpeer, _ := kbucket.GetRandomPeer()
-		if rpeer.Equal(*peer1) {
+		rpeer, _ := kBucket.GetRandomPeer()
+		if rpeer.Equal(peer1) {
 			count++
 		}
 	}

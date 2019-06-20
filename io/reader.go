@@ -19,11 +19,15 @@ func NewReader(data []byte) *Reader {
 	}
 }
 
+func (reader *Reader) GetErrors() []error {
+	return reader.errors
+}
+
 func (reader *Reader) Correct() bool {
 	return len(reader.errors) == 0
 }
 
-func (reader *Reader) Discard (count int) {
+func (reader *Reader) Discard(count int) {
 	discarded, err := reader.reader.Discard(count)
 	if err != nil {
 		reader.errors = append(reader.errors, err)

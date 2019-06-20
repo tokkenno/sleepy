@@ -8,14 +8,14 @@ type Callback func(sender interface{}, args Args)
 // Callback container for event handler
 type Container struct {
 	callback Callback
-	handler *Handler
+	handler  *Handler
 }
 
 // Create a new event container from a callback
 func newEvent(handler *Handler, callback Callback) *Container {
 	return &Container{
 		callback: callback,
-		handler: handler,
+		handler:  handler,
 	}
 }
 

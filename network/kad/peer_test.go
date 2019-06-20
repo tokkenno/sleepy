@@ -1,9 +1,9 @@
 package kad
 
 import (
-	"testing"
-	"net"
 	"github.com/tokkenno/sleepy/types"
+	"net"
+	"testing"
 )
 
 func TestPeer_GetIP(t *testing.T) {

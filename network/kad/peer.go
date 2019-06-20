@@ -1,9 +1,9 @@
 package kad
 
 import (
+	"errors"
 	"github.com/tokkenno/sleepy/types"
 	"net"
-	"errors"
 	"time"
 )
 
@@ -46,9 +46,9 @@ func newEmptyPeer() *Peer {
 }
 
 // Create a new user from his Id
-func NewPeer(id types.UInt128) *Peer {
+func NewPeer(id *types.UInt128) *Peer {
 	newPeer := newEmptyPeer()
-	newPeer.id = id
+	newPeer.id = *id.Clone()
 	return newPeer
 }
 
@@ -108,8 +108,8 @@ func (peer *Peer) TCPPort() uint16 {
 }
 
 // Calculate the peer distance between this and the other
-func (peer *Peer) GetDistance(id types.UInt128) *types.UInt128 {
-	return types.Xor(peer.id, id)
+func (peer *Peer) GetDistance(id *types.UInt128) *types.UInt128 {
+	return types.Xor(&peer.id, id)
 }
 
 // Check if the peer is alive
@@ -172,8 +172,8 @@ func (peer *Peer) RemoveUse() {
 }
 
 // Check if two peers are equals (If they have the same Id)
-func (peer *Peer) Equal(otherPeer Peer) bool {
-	return peer.id.Equal(otherPeer.id)
+func (peer *Peer) Equal(otherPeer *Peer) bool {
+	return peer.id.Equal(&otherPeer.id)
 }
 
 // Degrade the type of node
@@ -221,7 +221,7 @@ func (peer *Peer) LastSeen() time.Time {
 
 // Update peer instance from other
 func (peer *Peer) Update(otherPeer *Peer) error {
-	if peer.Equal(*otherPeer) {
+	if peer.Equal(otherPeer) {
 		peer.ip = *otherPeer.IP()
 		peer.udpPort = otherPeer.udpPort
 		peer.tcpPort = otherPeer.tcpPort

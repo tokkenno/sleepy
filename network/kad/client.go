@@ -2,21 +2,21 @@ package kad
 
 import (
 	"fmt"
-	"os"
-	"net"
 	"github.com/tokkenno/sleepy/types"
+	"net"
+	"os"
 )
 
 type Client struct {
-	port uint16
-	server *Server
+	port       uint16
+	server     *Server
 	clientAddr *net.UDPAddr
 	clientConn *net.UDPConn
 }
 
 func checkError(err error) {
-	if err  != nil {
-		fmt.Println("Error: " , err)
+	if err != nil {
+		fmt.Println("Error: ", err)
 		os.Exit(0)
 	}
 }
@@ -28,11 +28,11 @@ func NewClient(port uint16) *Client {
 	return client
 }
 
-func (this *Client) Start () {
+func (this *Client) Start() {
 	this.server.Start()
 }
 
-func (this *Client) Stop () {
+func (this *Client) Stop() {
 	this.server.Stop()
 
 	this.clientConn.Close()

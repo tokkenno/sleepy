@@ -1,14 +1,14 @@
 package router
 
 import (
-	"github.com/tokkenno/sleepy/types"
+	"errors"
+	"github.com/tokkenno/sleepy/network/ed2k"
 	"github.com/tokkenno/sleepy/network/kad"
+	"github.com/tokkenno/sleepy/types"
+	"github.com/tokkenno/sleepy/utils/event"
+	"math/rand"
 	"net"
 	"time"
-	"errors"
-	"math/rand"
-	"github.com/tokkenno/sleepy/utils/event"
-	"github.com/tokkenno/sleepy/network/ed2k"
 )
 
 const (
@@ -45,7 +45,7 @@ func newChildZone(parent Zone, isRightChild bool) *Zone {
 	zoneIndexCalculated := parent.zoneIndex.Clone()
 	zoneIndexCalculated.LeftShift(1)
 	if isRightChild {
-		zoneIndexCalculated.Add(*types.NewUInt128FromInt(1))
+		zoneIndexCalculated.Add(types.NewUInt128FromInt(1))
 	}
 
 	rz := &Zone{
@@ -145,7 +145,7 @@ func (zone *Zone) onRandomLookupTimer() {
 		// Generate a random ID inside this zone
 		randId := zone.zoneIndex.Clone()
 		randId.LeftShift(uint(zone.level))
-		randId.Xor(zone.localId)
+		randId.Xor(&zone.localId)
 
 		// Emit event. The KAD client will insert the peer if it finds it
 		zone.Root().peerLookupRequestEvent.Emit(zone, PeerIdEventArgs{Id: *randId})
@@ -263,7 +263,7 @@ func (zone *Zone) split() error {
 		zone.leftChild, zone.rightChild = newChildZones(*zone)
 
 		for _, currPeer := range zone.bucket.Peers() {
-			distance := currPeer.GetDistance(zone.localId)
+			distance := currPeer.GetDistance(&zone.localId)
 			if distance.GetBit(zone.Level()) == 0 {
 				zone.leftChild.AddPeer(currPeer)
 			} else {
@@ -305,29 +305,27 @@ func (zone *Zone) AddPeer(peer *kad.Peer) error {
 
 	if !zone.isLeaf() {
 		// If the zone isn't leaf, insert in the indicated child zone
-		if peer.GetDistance(zone.localId).GetBit(int(zone.level)) == 0 {
-			zone.leftChild.AddPeer(peer)
+		if peer.GetDistance(&zone.localId).GetBit(int(zone.level)) == 0 {
+			return zone.leftChild.AddPeer(peer)
 		} else {
-			zone.rightChild.AddPeer(peer)
+			return zone.rightChild.AddPeer(peer)
 		}
 	} else {
-		if !zone.localId.Equal(*peer.Id()) {
-			locPeer, err := zone.bucket.GetPeer(*peer.Id())
+		if !zone.localId.Equal(peer.Id()) {
+			locPeer, err := zone.bucket.GetPeer(peer.Id())
 
 			if err == nil && locPeer != nil {
 				// If the peer already exists, update
-				locPeer.Update(peer)
-				return nil
+				return locPeer.Update(peer)
 			} else if !zone.bucket.IsFull() {
 				// If not exists, but leaf has free space, insert
-				zone.bucket.AddPeer(peer)
-				return nil
+				return zone.bucket.AddPeer(peer)
 			} else if zone.canSplit() {
-				// If don't have free space but can be splitted, split and retry
+				// If don't have free space but can be split and retry
 				zone.split()
 				return zone.AddPeer(peer)
 			} else {
-				return errors.New("the peer can't be added")
+				return errors.New("the peer can't be added. bucket full and can't be split")
 			}
 		} else {
 			return errors.New("the router can't contains itself")
@@ -338,11 +336,11 @@ func (zone *Zone) AddPeer(peer *kad.Peer) error {
 }
 
 // Get a peer from his id
-func (zone *Zone) GetPeer(id types.UInt128) (*kad.Peer, error) {
+func (zone *Zone) GetPeer(id *types.UInt128) (*kad.Peer, error) {
 	if zone.isLeaf() {
 		return zone.bucket.GetPeer(id)
 	} else {
-		distance := types.Xor(zone.localId, id)
+		distance := types.Xor(&zone.localId, id)
 		if distance.GetBit(zone.Level()) == 0 {
 			return zone.leftChild.GetPeer(id)
 		} else {
@@ -404,7 +402,7 @@ func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []*kad.Peer {
 		peers = zone.leftChild.GetTopPeers(maxPeers, maxDepth-1)
 
 		if len(peers) < maxPeers {
-			peers = append(peers, zone.rightChild.GetTopPeers(maxPeers - len(peers), maxDepth-1)...)
+			peers = append(peers, zone.rightChild.GetTopPeers(maxPeers-len(peers), maxDepth-1)...)
 		}
 	}
 
@@ -440,7 +438,7 @@ func (zone *Zone) GetRandomBucketPeers() []*kad.Peer {
 }
 
 // Get the closest [max] peers respect the [to] id.
-func (zone *Zone) GetClosestPeers(to types.UInt128, max int) []*kad.Peer {
+func (zone *Zone) GetClosestPeers(to *types.UInt128, max int) []*kad.Peer {
 	if zone.isLeaf() {
 		// If leaf, get from bucket
 		return zone.bucket.GetClosestPeers(to, max)
@@ -469,7 +467,7 @@ func (zone *Zone) CountPeers() int {
 }
 
 // Check if exists a peer with a concrete id into the zone
-func (zone *Zone) ContainsPeer(id types.UInt128) bool {
+func (zone *Zone) ContainsPeer(id *types.UInt128) bool {
 	if zone.isLeaf() {
 		return zone.bucket.ContainsPeer(id)
 	} else {
@@ -478,7 +476,7 @@ func (zone *Zone) ContainsPeer(id types.UInt128) bool {
 }
 
 // Set a peer as verified
-func (zone *Zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
+func (zone *Zone) VerifyPeer(id *types.UInt128, ip net.IP) bool {
 	peer, err := zone.GetPeer(id)
 
 	if err != nil {

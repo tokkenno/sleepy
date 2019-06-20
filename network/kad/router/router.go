@@ -1,12 +1,12 @@
 package router
 
 import (
-	"github.com/tokkenno/sleepy/types"
 	"errors"
-	"time"
+	"github.com/tokkenno/sleepy/network/kad"
+	"github.com/tokkenno/sleepy/types"
 	"github.com/tokkenno/sleepy/utils/event"
 	"math/rand"
-	"github.com/tokkenno/sleepy/network/kad"
+	"time"
 )
 
 // The router is the special zone in the root of a zone tree
@@ -23,10 +23,10 @@ func LoadRouterFromFile(localId types.UInt128, path string) (*Router, error) {
 }
 
 // Create a new Zone tree (Router) from the local peer Id
-func NewRouter(id types.UInt128) *Router {
+func NewRouter(id *types.UInt128) *Router {
 	rz := &Router{
 		Zone: Zone{
-			localId:           id,
+			localId:           *id.Clone(),
 			zoneIndex:         *types.NewUInt128FromInt(0),
 			parent:            nil,
 			leftChild:         nil,

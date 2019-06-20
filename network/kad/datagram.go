@@ -1,19 +1,19 @@
 package kad
 
 import (
-	"net"
 	"github.com/tokkenno/sleepy/io"
+	"net"
 )
 
 type Datagram struct {
 	protocolCode byte
-	data *[]byte
+	data         *[]byte
 }
 
 type InDatagram struct {
 	Datagram
 	reader *io.Reader
-	from net.Addr
+	from   net.Addr
 }
 
 type KadInDatagram struct {
