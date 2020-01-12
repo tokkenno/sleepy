@@ -1,16 +1,16 @@
 package router
 
 import (
-	"github.com/tokkenno/sleepy/network/kad"
-	"github.com/tokkenno/sleepy/types"
 	"math/rand"
 	"net"
+	types2 "sleepy/network/kad/types"
+	"sleepy/types"
 	"strconv"
 	"testing"
 )
 
 func TestKBucket_AddPeer(t *testing.T) {
-	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer := types2.NewPeer(types.NewUInt128FromInt(1))
 	kBucket := &kBucket{}
 	err := kBucket.AddPeer(peer)
 
@@ -33,7 +33,7 @@ func TestKBucket_AddMultiplePeer(t *testing.T) {
 	randGen := rand.New(rand.NewSource(0))
 
 	for i := 0; i < maxBucketSize; i++ {
-		peer := kad.NewPeer(types.NewUInt128FromInt(i))
+		peer := types2.NewPeer(types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		kBucket.AddPeer(peer)
 
@@ -44,7 +44,7 @@ func TestKBucket_AddMultiplePeer(t *testing.T) {
 }
 
 func TestKBucket_Count(t *testing.T) {
-	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer := types2.NewPeer(types.NewUInt128FromInt(1))
 	kBucket := &kBucket{}
 	kBucket.AddPeer(peer)
 
@@ -58,7 +58,7 @@ func TestKBucket_Count(t *testing.T) {
 		t.Errorf("K-Bucket must contains a unique peer, %d found", kBucket.CountPeers())
 	}
 
-	otherPeer := kad.NewPeer(types.NewUInt128FromInt(2))
+	otherPeer := types2.NewPeer(types.NewUInt128FromInt(2))
 	kBucket.AddPeer(otherPeer)
 
 	if kBucket.CountPeers() != 2 {
@@ -68,7 +68,7 @@ func TestKBucket_Count(t *testing.T) {
 
 func TestKBucket_GetPeer(t *testing.T) {
 	id := types.NewUInt128FromInt(1)
-	peer := kad.NewPeer(id)
+	peer := types2.NewPeer(id)
 	kBucket := &kBucket{}
 	kBucket.AddPeer(peer)
 
@@ -84,7 +84,7 @@ func TestKBucket_GetPeer(t *testing.T) {
 
 func TestKBucket_GetPeerByAddr(t *testing.T) {
 	testIp := net.ParseIP("100.101.102.103")
-	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer := types2.NewPeer(types.NewUInt128FromInt(1))
 	peer.SetIP(testIp, false)
 	peer.SetTCPPort(123)
 	peer.SetUDPPort(321)
@@ -114,9 +114,9 @@ func TestKBucket_GetPeerByAddr(t *testing.T) {
 }
 
 func TestKBucket_GetPeers(t *testing.T) {
-	peer0 := kad.NewPeer(types.NewUInt128FromInt(1))
-	peer1 := kad.NewPeer(types.NewUInt128FromInt(2))
-	peer2 := kad.NewPeer(types.NewUInt128FromInt(3))
+	peer0 := types2.NewPeer(types.NewUInt128FromInt(1))
+	peer1 := types2.NewPeer(types.NewUInt128FromInt(2))
+	peer2 := types2.NewPeer(types.NewUInt128FromInt(3))
 
 	kBucket := &kBucket{}
 	kBucket.AddPeer(peer0)
@@ -131,7 +131,7 @@ func TestKBucket_GetPeers(t *testing.T) {
 }
 
 func TestKBucket_RemovePeer(t *testing.T) {
-	peer := kad.NewPeer(types.NewUInt128FromInt(1))
+	peer := types2.NewPeer(types.NewUInt128FromInt(1))
 	kBucket := &kBucket{}
 	kBucket.AddPeer(peer)
 	kBucket.RemovePeer(peer)
@@ -143,14 +143,14 @@ func TestKBucket_RemovePeer(t *testing.T) {
 
 func TestKBucket_IsFull(t *testing.T) {
 	kBucket := &kBucket{}
-	var peers [maxBucketSize]kad.Peer
+	var peers [maxBucketSize]types2.Peer
 
 	if kBucket.IsFull() {
 		t.Errorf("K-Bucket must not be full")
 	}
 
 	for i := 0; i < maxBucketSize; i++ {
-		newPeer := kad.NewPeer(types.NewUInt128FromInt(i))
+		newPeer := types2.NewPeer(types.NewUInt128FromInt(i))
 		newPeer.SetIP(net.ParseIP("100.101.102."+strconv.Itoa(i)), false) // Limit of peers with the same ip
 		peers[i] = *newPeer
 		kBucket.AddPeer(newPeer)
@@ -162,8 +162,8 @@ func TestKBucket_IsFull(t *testing.T) {
 }
 
 func TestKBucket_SetAlive(t *testing.T) {
-	peer0 := kad.NewPeer(types.NewUInt128FromInt(1))
-	peer1 := kad.NewPeer(types.NewUInt128FromInt(2))
+	peer0 := types2.NewPeer(types.NewUInt128FromInt(1))
+	peer1 := types2.NewPeer(types.NewUInt128FromInt(2))
 
 	kBucket := &kBucket{}
 	kBucket.AddPeer(peer0)
@@ -179,8 +179,8 @@ func TestKBucket_SetAlive(t *testing.T) {
 }
 
 func TestKBucket_GetRandomPeer(t *testing.T) {
-	peer0 := kad.NewPeer(types.NewUInt128FromInt(1))
-	peer1 := kad.NewPeer(types.NewUInt128FromInt(2))
+	peer0 := types2.NewPeer(types.NewUInt128FromInt(1))
+	peer1 := types2.NewPeer(types.NewUInt128FromInt(2))
 
 	kBucket := &kBucket{}
 	kBucket.AddPeer(peer0)

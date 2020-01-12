@@ -1,1 +1,3 @@
-module github.com/tokkenno/sleepy
+module sleepy
+
+go 1.13

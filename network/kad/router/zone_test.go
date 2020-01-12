@@ -1,10 +1,10 @@
 package router
 
 import (
-	"github.com/tokkenno/sleepy/network/kad"
-	"github.com/tokkenno/sleepy/types"
 	"math/rand"
 	"net"
+	types2 "sleepy/network/kad/types"
+	"sleepy/types"
 	"testing"
 )
 
@@ -15,7 +15,7 @@ func TestZone_AddPeer(t *testing.T) {
 
 	// Add maxBucketSize + 1 to force new bucket creation
 	for i := 0; i < maxBucketSize+1; i++ {
-		peer := kad.NewPeer(types.NewUInt128(randGen.Uint64(), randGen.Uint64()))
+		peer := types2.NewPeer(types.NewUInt128(randGen.Uint64(), randGen.Uint64()))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		err := zone.AddPeer(peer)
 
@@ -43,7 +43,7 @@ func TestZone_AddSamePeer(t *testing.T) {
 
 	// Add maxBucketSize + 1 to force new bucket creation
 	for i := 0; i < maxBucketSize+5; i++ {
-		peer := kad.NewPeer(types.NewUInt128FromInt(0))
+		peer := types2.NewPeer(types.NewUInt128FromInt(0))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		err := zone.AddPeer(peer)
 
@@ -62,7 +62,7 @@ func TestZone_ContainsPeer(t *testing.T) {
 	router := NewRouter(routerId)
 
 	peerId := types.NewUInt128FromInt(0xff00ff)
-	peer := kad.NewPeer(peerId)
+	peer := types2.NewPeer(peerId)
 
 	err := router.AddPeer(peer)
 
@@ -79,7 +79,7 @@ func TestZone_CountPeers(t *testing.T) {
 	zone := NewRouter(routerId)
 
 	for i := 1; i <= maxBucketSize; i++ {
-		peer := kad.NewPeer(types.NewUInt128FromInt(i))
+		peer := types2.NewPeer(types.NewUInt128FromInt(i))
 		peer.SetIP(net.IPv4(byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255)), byte(randGen.Intn(255))), false)
 		err := zone.AddPeer(peer)
 

@@ -2,10 +2,10 @@ package router
 
 import (
 	"errors"
-	"github.com/tokkenno/sleepy/network/kad"
-	"github.com/tokkenno/sleepy/types"
-	"github.com/tokkenno/sleepy/utils/event"
 	"math/rand"
+	types2 "sleepy/network/kad/types"
+	"sleepy/types"
+	"sleepy/utils/event"
 	"time"
 )
 
@@ -62,7 +62,7 @@ func (router *Router) SaveFile(path string) error {
 }
 
 // Get a list of peers of [max] size prepared to do a bootstrap
-func (router *Router) GetBootstrapPeers(max int) []*kad.Peer {
-	const BootstrapDepth = 5 // Defined as LOG_BASE_EXPONENT constant in kademlia/defines.h
+func (router *Router) GetBootstrapPeers(max int) []*types2.Peer {
+	const BootstrapDepth = 5 // Defined as LOG_BASE_EXPONENT constant in protocol/defines.h
 	return router.GetTopPeers(max, BootstrapDepth)
 }

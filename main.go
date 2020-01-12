@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/tokkenno/sleepy/network/kad"
+	"sleepy/network/kad"
 	"os"
 )
 

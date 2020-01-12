@@ -2,12 +2,12 @@ package router
 
 import (
 	"errors"
-	"github.com/tokkenno/sleepy/network/ed2k"
-	"github.com/tokkenno/sleepy/network/kad"
-	"github.com/tokkenno/sleepy/types"
-	"github.com/tokkenno/sleepy/utils/event"
 	"math/rand"
 	"net"
+	"sleepy/network/ed2k"
+	types2 "sleepy/network/kad/types"
+	"sleepy/types"
+	"sleepy/utils/event"
 	"time"
 )
 
@@ -17,7 +17,7 @@ const (
 
 type PeerEventArgs struct {
 	event.Args
-	Peer *kad.Peer
+	Peer *types2.Peer
 }
 
 type PeerIdEventArgs struct {
@@ -300,7 +300,7 @@ func (zone *Zone) MaxDepth() int {
 }
 
 // Add peer to the route table
-func (zone *Zone) AddPeer(peer *kad.Peer) error {
+func (zone *Zone) AddPeer(peer *types2.Peer) error {
 	// TODO: Filter IPs and protocol versions
 
 	if !zone.isLeaf() {
@@ -336,7 +336,7 @@ func (zone *Zone) AddPeer(peer *kad.Peer) error {
 }
 
 // Get a peer from his id
-func (zone *Zone) GetPeer(id *types.UInt128) (*kad.Peer, error) {
+func (zone *Zone) GetPeer(id *types.UInt128) (*types2.Peer, error) {
 	if zone.isLeaf() {
 		return zone.bucket.GetPeer(id)
 	} else {
@@ -350,7 +350,7 @@ func (zone *Zone) GetPeer(id *types.UInt128) (*kad.Peer, error) {
 }
 
 // Get a peer from his addr
-func (zone *Zone) GetPeerByAddr(addr net.Addr) (*kad.Peer, error) {
+func (zone *Zone) GetPeerByAddr(addr net.Addr) (*types2.Peer, error) {
 	if zone.isLeaf() {
 		return zone.bucket.GetPeerByAddr(addr)
 	} else {
@@ -365,7 +365,7 @@ func (zone *Zone) GetPeerByAddr(addr net.Addr) (*kad.Peer, error) {
 }
 
 // Get a random peer from a random branch
-func (zone *Zone) GetRandomPeer() (*kad.Peer, error) {
+func (zone *Zone) GetRandomPeer() (*types2.Peer, error) {
 	if zone.isLeaf() {
 		return zone.bucket.GetRandomPeer()
 	} else {
@@ -382,7 +382,7 @@ func (zone *Zone) GetRandomPeer() (*kad.Peer, error) {
 }
 
 // Get a slice of all peers
-func (zone *Zone) Peers() []*kad.Peer {
+func (zone *Zone) Peers() []*types2.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.peers
 	} else {
@@ -391,8 +391,8 @@ func (zone *Zone) Peers() []*kad.Peer {
 }
 
 // Get a slice with the [maxPeers] top peers.
-func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []*kad.Peer {
-	var peers []*kad.Peer
+func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []*types2.Peer {
+	var peers []*types2.Peer
 
 	if zone.isLeaf() {
 		peers = zone.bucket.Peers()
@@ -414,7 +414,7 @@ func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []*kad.Peer {
 }
 
 // Obtain peers from a random bucket located at least at the [depth] indicated on the Zone tree
-func (zone *Zone) GetDepthPeers(depth int) []*kad.Peer {
+func (zone *Zone) GetDepthPeers(depth int) []*types2.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.Peers()
 	} else if depth <= 0 {
@@ -425,7 +425,7 @@ func (zone *Zone) GetDepthPeers(depth int) []*kad.Peer {
 }
 
 // Get the peers from a random child bucket
-func (zone *Zone) GetRandomBucketPeers() []*kad.Peer {
+func (zone *Zone) GetRandomBucketPeers() []*types2.Peer {
 	if zone.isLeaf() {
 		return zone.bucket.Peers()
 	} else {
@@ -438,7 +438,7 @@ func (zone *Zone) GetRandomBucketPeers() []*kad.Peer {
 }
 
 // Get the closest [max] peers respect the [to] id.
-func (zone *Zone) GetClosestPeers(to *types.UInt128, max int) []*kad.Peer {
+func (zone *Zone) GetClosestPeers(to *types.UInt128, max int) []*types2.Peer {
 	if zone.isLeaf() {
 		// If leaf, get from bucket
 		return zone.bucket.GetClosestPeers(to, max)

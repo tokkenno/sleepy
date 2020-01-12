@@ -1,8 +1,8 @@
-package kad
+package types
 
 import (
 	"errors"
-	"github.com/tokkenno/sleepy/types"
+	"sleepy/types"
 	"net"
 	"time"
 )

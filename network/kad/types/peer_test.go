@@ -1,8 +1,8 @@
-package kad
+package types
 
 import (
-	"github.com/tokkenno/sleepy/types"
 	"net"
+	"sleepy/types"
 	"testing"
 )
 
