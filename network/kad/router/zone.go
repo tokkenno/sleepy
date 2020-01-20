@@ -2,12 +2,14 @@ package router
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"net"
 	"sleepy/network/ed2k"
 	types2 "sleepy/network/kad/types"
 	"sleepy/types"
 	"sleepy/utils/event"
+	"sync"
 	"time"
 )
 
@@ -38,6 +40,7 @@ type Zone struct {
 	updatePeersTimer  *time.Ticker
 	randomLookupTimer *time.Ticker
 	checkStopFlag     bool
+	zoneAccess sync.Mutex
 }
 
 // Create a child zone from a parent instance
@@ -49,14 +52,14 @@ func newChildZone(parent Zone, isRightChild bool) *Zone {
 	}
 
 	rz := &Zone{
-		localId:           parent.localId,
-		zoneIndex:         *zoneIndexCalculated,
-		parent:            &parent,
-		root:              parent.Root(),
-		leftChild:         nil,
-		rightChild:        nil,
-		level:             parent.level + 1,
-		bucket:            new(kBucket),
+		localId:    parent.localId,
+		zoneIndex:  *zoneIndexCalculated,
+		parent:     &parent,
+		root:       parent.Root(),
+		leftChild:  nil,
+		rightChild: nil,
+		level:      parent.level + 1,
+		bucket:     newKBucket(),
 		updatePeersTimer:  nil,
 		randomLookupTimer: nil,
 	}
@@ -113,11 +116,14 @@ func (zone *Zone) isLeaf() bool {
 
 // Get the max depth of this branch
 func (zone *Zone) maxDepth() int {
+	zone.zoneAccess.Lock()
 	if zone.isLeaf() {
+		zone.zoneAccess.Unlock()
 		return 0
 	} else {
 		ld := zone.leftChild.maxDepth()
 		rd := zone.rightChild.maxDepth()
+		zone.zoneAccess.Unlock()
 		if ld > rd {
 			return ld + 1
 		} else {
@@ -141,6 +147,7 @@ func (zone *Zone) runRandomLookupTimer() {
 
 // Handle the RandomLookup timer and run a lookup of a random peer inside each leaf (onBigTimer)
 func (zone *Zone) onRandomLookupTimer() {
+	zone.zoneAccess.Lock()
 	if zone.isLeaf() && zone.level < maxLevels || float32(zone.bucket.CountPeers()) >= (maxBucketSize*0.8) {
 		// Generate a random ID inside this zone
 		randId := zone.zoneIndex.Clone()
@@ -150,6 +157,7 @@ func (zone *Zone) onRandomLookupTimer() {
 		// Emit event. The KAD client will insert the peer if it finds it
 		zone.Root().peerLookupRequestEvent.Emit(zone, PeerIdEventArgs{Id: *randId})
 	}
+	zone.zoneAccess.Unlock()
 }
 
 // Run a timer to do periodic check of the peers
@@ -168,6 +176,7 @@ func (zone *Zone) runUpdatePeersTimer() {
 
 // Handle the UpdatePeers timer and run a check and update of the peers inside each leaf (onSmallTimer)
 func (zone *Zone) onUpdatePeersTimer() {
+	zone.zoneAccess.Lock()
 	if zone.isLeaf() {
 		// Remove dead entries
 		for _, peer := range zone.bucket.Peers() {
@@ -201,6 +210,7 @@ func (zone *Zone) onUpdatePeersTimer() {
 			}
 		}
 	}
+	zone.zoneAccess.Unlock()
 }
 
 // Check if the current leaf can be splitted in a branch with 2 leafs
@@ -222,6 +232,7 @@ func (zone *Zone) canSplit() bool {
 
 // Retract and consolidate the tree branch if it is possible
 func (zone *Zone) consolidate() {
+	zone.zoneAccess.Lock()
 	if zone.isLeaf() {
 		return
 	} else {
@@ -254,6 +265,7 @@ func (zone *Zone) consolidate() {
 			zone.startChecks()
 		}
 	}
+	zone.zoneAccess.Unlock()
 }
 
 // Split a leaf into a branch with two leafs
@@ -394,17 +406,20 @@ func (zone *Zone) Peers() []*types2.Peer {
 func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []*types2.Peer {
 	var peers []*types2.Peer
 
+	zone.zoneAccess.Lock()
 	if zone.isLeaf() {
 		peers = zone.bucket.Peers()
 	} else if maxDepth <= 0 {
 		peers = zone.GetRandomBucketPeers()
 	} else {
+		fmt.Println(zone.leftChild)
 		peers = zone.leftChild.GetTopPeers(maxPeers, maxDepth-1)
 
 		if len(peers) < maxPeers {
 			peers = append(peers, zone.rightChild.GetTopPeers(maxPeers-len(peers), maxDepth-1)...)
 		}
 	}
+	zone.zoneAccess.Unlock()
 
 	if len(peers) < maxPeers {
 		return peers
