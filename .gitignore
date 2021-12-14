@@ -18,3 +18,7 @@
 
 # Dep package manager
 /vendor
+
+# Gradle
+/.gradle
+/build
