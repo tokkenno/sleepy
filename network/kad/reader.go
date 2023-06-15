@@ -6,7 +6,7 @@ import (
 )
 
 type Reader struct {
-	data []byte
+	data   []byte
 	offset int64
 }
 
@@ -34,7 +34,7 @@ func (reader *Reader) Close() error {
 }
 
 func (reader *Reader) Discard(size int64) error {
-	_, err := reader.Seek(reader.offset + size, 0)
+	_, err := reader.Seek(reader.offset+size, 0)
 	return err
 }
 
@@ -46,7 +46,6 @@ func (reader *Reader) ReadByte() (byte, error) {
 		return buffer[0], nil
 	}
 }
-
 
 func (reader *Reader) ReadBytes(size uint) ([]byte, error) {
 	buffer := make([]byte, size)
@@ -88,7 +87,7 @@ func (reader *Reader) ReadInt() (int, error) {
 	return int(value), err
 }
 
-func (reader *Reader) ReadUInt128() (*types.UInt128, error) {
+func (reader *Reader) ReadUInt128() (types.UInt128, error) {
 	buffer, err := reader.ReadBytes(16)
 	if err != nil {
 		return nil, err

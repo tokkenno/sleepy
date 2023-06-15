@@ -1,7 +1,14 @@
-package ed2k
+package common
+
+type Protocol byte
 
 const (
-	ProtEd2kTCP          = 0xe3
+	ProtocolEd2kTCP            Protocol = 0xe3
+	ProtocolEd2kServerUDP      Protocol = 0xe3
+	ProtocolEd2kPeerUDP        Protocol = 0xc5
+	ProtocolEmuleTcp           Protocol = 0xe3
+	ProtocolEmuleTcpCompressed Protocol = 0xe3
+
 	ProtEd2kUSP          = 0xc5
 	ProtEd2kUDPServer    = 0xe3
 	ProtEd2k2TCP         = 0xf4
@@ -12,7 +19,6 @@ const (
 	ProtEmuleUDPR2       = 0xb2
 	ProtKadUDP           = 0xe4
 	ProtKadUDPCompress   = 0xe5
-	MlDonkey             = 0x00
 	ProtocolVersion2     = uint8(2) // eMule 0.47a
 	ProtocolVersion3     = uint8(3) // eMule 0.47b
 	ProtocolVersion4     = uint8(4) // eMule 0.47c

@@ -1,14 +1,17 @@
 package kad
 
 import (
+	"fmt"
 	"log"
+	"sleepy/network/kad/packet/factory"
 )
 
-func HandleBootstrapRequest(client *Client, r *UDPRequest, w Response) {
+func HandleBootstrapRequest(client *Client, r *UDPRequest) {
 	log.Println("Bootstrap request")
-
 	contacts := client.router.GetBootstrapPeers(20)
-	log.Println("Se van a enviar " + string(len(contacts)) + " contactos.")
+	log.Println(fmt.Sprintf("Se van a enviar %d contactos.", len(contacts)))
+	packet := factory.GetBootstrap1Response(contacts)
+	client.network.SendUDP(r.from.IP, uint16(r.from.Port), packet)
 }
 
 func HandleBootstrapResponse(client *Client, r *UDPRequest, w Response) {

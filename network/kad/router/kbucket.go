@@ -17,49 +17,51 @@ const (
 
 // K-bucket is a queue of k peers ordered by TTL
 type kBucket struct {
-	peers       []*kadTypes.Peer
+	peers       []kadTypes.Peer
+	peersCount  int
 	peersAccess sync.Mutex
 }
 
 func newKBucket() *kBucket {
 	return &kBucket{
-		peers:       make([]*kadTypes.Peer, maxBucketSize),
+		peers:       make([]kadTypes.Peer, maxBucketSize),
+		peersCount:  0,
 		peersAccess: sync.Mutex{},
 	}
 }
 
-// Count the number of peers on this k-bucket
+// CountPeers returns the number of peers in the bucket
 func (bucket *kBucket) CountPeers() int {
-	return len(bucket.peers)
+	return bucket.peersCount
 }
 
-// Count the number of peers that can be stored yet
+// CountRemainingPeers returns the number of peers that can be added to the bucket
 func (bucket *kBucket) CountRemainingPeers() int {
 	return maxBucketSize - bucket.CountPeers()
 }
 
-// Check peer data and append to the end of k-bucket if correct
-func (bucket *kBucket) AddPeer(newPeer *kadTypes.Peer) error {
+// AddPeer add a peer to the bucket
+func (bucket *kBucket) AddPeer(newPeer kadTypes.Peer) error {
 	if newPeer == nil {
 		return errors.New("kBucket only can storage not null peers")
 	}
 
 	bucket.peersAccess.Lock()
 
+	if bucket.peersCount >= maxBucketSize {
+		bucket.peersAccess.Unlock()
+		return errors.New("the current kBucket is full")
+	}
+
 	sameNetwork := 0
-	for _, peer := range bucket.peers {
-		if peer.Equal(newPeer) {
+	for peerIndex := 0; peerIndex < bucket.peersCount; peerIndex++ {
+		if bucket.peers[peerIndex].Equal(newPeer) {
 			bucket.peersAccess.Unlock()
 			return errors.New("kBucket already contains the passed peer")
 		}
-		if peer.IP().Equal(*newPeer.IP()) {
+		if bucket.peers[peerIndex].GetIP().Equal(newPeer.GetIP()) {
 			sameNetwork++
 		}
-	}
-
-	if len(bucket.peers) >= maxBucketSize {
-		bucket.peersAccess.Unlock()
-		return errors.New("the current kBucket is full")
 	}
 
 	if sameNetwork >= maxPeersPerIP {
@@ -67,38 +69,47 @@ func (bucket *kBucket) AddPeer(newPeer *kadTypes.Peer) error {
 		return errors.New("many peers for the current IP")
 	}
 
-	bucket.peers = append(bucket.peers, newPeer)
+	bucket.peers[bucket.peersCount] = newPeer
+	bucket.peersCount++
 	bucket.peersAccess.Unlock()
 	// TODO: Adjust global tracking
 	return nil
 }
 
-// Remove a peer from the bucket
-func (bucket *kBucket) RemovePeer(peer *kadTypes.Peer) error {
+// RemovePeer remove a peer from the bucket
+func (bucket *kBucket) RemovePeer(peer kadTypes.Peer) error {
 	bucket.peersAccess.Lock()
 
-	for index, peertr := range bucket.peers {
-		if peertr.Equal(peer) {
-			bucket.peers = append(bucket.peers[0:index], bucket.peers[index+1:len(bucket.peers)]...)
-			bucket.peersAccess.Unlock()
-			return nil
+	removing := false
+	for peerIndex := 0; peerIndex < bucket.peersCount; peerIndex++ {
+		if removing {
+			bucket.peers[peerIndex-1] = bucket.peers[peerIndex]
+		} else if bucket.peers[peerIndex].Equal(peer) {
+			bucket.peers[peerIndex] = nil
+			removing = true
 		}
 	}
 
-	bucket.peersAccess.Unlock()
-	return errors.New("kBucket don't contains a peer with the passed id")
+	if removing {
+		bucket.peersCount--
+		bucket.peersAccess.Unlock()
+		return nil
+	} else {
+		bucket.peersAccess.Unlock()
+		return errors.New("kBucket don't contains a peer with the passed id")
+	}
 }
 
-// Get a peer from his id
-func (bucket *kBucket) GetPeer(id *types.UInt128) (*kadTypes.Peer, error) {
+// GetPeer find and retrieve a peer from his id
+func (bucket *kBucket) GetPeer(id types.UInt128) (kadTypes.Peer, error) {
 	bucket.peersAccess.Lock()
 
-	for _, peer := range bucket.peers {
-		peerId := peer.Id()
+	for peerIndex := 0; peerIndex < bucket.peersCount; peerIndex++ {
+		peerId := bucket.peers[peerIndex].Id()
 
 		if peerId.Equal(id) {
 			bucket.peersAccess.Unlock()
-			return peer, nil
+			return bucket.peers[peerIndex], nil
 		}
 	}
 
@@ -106,8 +117,8 @@ func (bucket *kBucket) GetPeer(id *types.UInt128) (*kadTypes.Peer, error) {
 	return nil, errors.New("kBucket don't contains a peer with the passed id")
 }
 
-// Get a peer from his ip
-func (bucket *kBucket) GetPeerByAddr(addr net.Addr) (*kadTypes.Peer, error) {
+// GetPeerByAddr find and retrieve a peer from his network address
+func (bucket *kBucket) GetPeerByAddr(addr net.Addr) (kadTypes.Peer, error) {
 	bucket.peersAccess.Lock()
 
 	var ip net.IP
@@ -127,11 +138,11 @@ func (bucket *kBucket) GetPeerByAddr(addr net.Addr) (*kadTypes.Peer, error) {
 		return nil, errors.New("incompatible network type")
 	}
 
-	for _, peer := range bucket.peers {
-		if peer.IP().Equal(ip) {
-			if (isTcp && peer.TCPPort() == port) || (!isTcp && peer.UDPPort() == port) {
+	for peerIndex := 0; peerIndex < bucket.peersCount; peerIndex++ {
+		if bucket.peers[peerIndex].GetIP().Equal(ip) {
+			if (isTcp && bucket.peers[peerIndex].GetTCPPort() == port) || (!isTcp && bucket.peers[peerIndex].GetUDPPort() == port) {
 				bucket.peersAccess.Unlock()
-				return peer, nil
+				return bucket.peers[peerIndex], nil
 			}
 		}
 	}
@@ -140,7 +151,7 @@ func (bucket *kBucket) GetPeerByAddr(addr net.Addr) (*kadTypes.Peer, error) {
 	return nil, errors.New("kBucket don't contains a peer with the passed ip")
 }
 
-func (bucket *kBucket) GetRandomPeer() (*kadTypes.Peer, error) {
+func (bucket *kBucket) GetRandomPeer() (kadTypes.Peer, error) {
 	b := make([]byte, 1)
 	_, err := rand.Read(b)
 
@@ -150,8 +161,8 @@ func (bucket *kBucket) GetRandomPeer() (*kadTypes.Peer, error) {
 
 	bucket.peersAccess.Lock()
 
-	if len(bucket.peers) > 0 {
-		peer := bucket.peers[int(b[0]) % len(bucket.peers)]
+	if bucket.peersCount > 0 {
+		peer := bucket.peers[int(b[0])%bucket.peersCount]
 		bucket.peersAccess.Unlock()
 		return peer, nil
 	} else {
@@ -160,38 +171,40 @@ func (bucket *kBucket) GetRandomPeer() (*kadTypes.Peer, error) {
 	}
 }
 
-// Return the oldest peer in the bucket or null if not exists
-func (bucket *kBucket) OldestPeer() *kadTypes.Peer {
-	if len(bucket.peers) > 0 {
+// OldestPeer returns the oldest peer in the bucket
+func (bucket *kBucket) OldestPeer() kadTypes.Peer {
+	if bucket.peersCount > 0 {
 		return bucket.peers[0]
 	} else {
 		return nil
 	}
 }
 
-func (bucket *kBucket) ContainsPeer(id *types.UInt128) bool {
+func (bucket *kBucket) ContainsPeer(id types.UInt128) bool {
 	peer, err := bucket.GetPeer(id)
 	return peer != nil && err == nil
 }
 
-func (bucket *kBucket) Peers() []*kadTypes.Peer {
-	peerCpy := make([]*kadTypes.Peer, len(bucket.peers))
-	copy(peerCpy, bucket.peers)
+func (bucket *kBucket) Peers() []kadTypes.Peer {
+	peerCpy := make([]kadTypes.Peer, bucket.peersCount)
+	copy(peerCpy, bucket.peers[0:bucket.peersCount])
 	return peerCpy
 }
 
-// Get the closest [max] peers respect the [to] id.
-func (bucket *kBucket) GetClosestPeers(to *types.UInt128, max int) []*kadTypes.Peer {
-	if len(bucket.peers) > 0 {
+// GetClosestPeers get the closest [max] peers respect the [to] id.
+func (bucket *kBucket) GetClosestPeers(to types.UInt128, max int) []kadTypes.Peer {
+	if bucket.peersCount > 0 {
 		// Filter to leave only the active peers
-		peerCpy := kadTypes.Filter(bucket.Peers(), func(peer *kadTypes.Peer) bool {
-			return peer.IsIpVerified() && peer.IsAlive()
+		peerCpy := kadTypes.Filter(bucket.Peers(), func(peer kadTypes.Peer) bool {
+			return peer.IsIPVerified() && peer.IsAlive()
 		})
 
 		// Sort by distance
 		sort.Slice(peerCpy, func(i int, j int) bool {
-			iDis := types.Xor(peerCpy[i].Id(), to)
-			jDis := types.Xor(peerCpy[j].Id(), to)
+			firstPeerId := peerCpy[i].Id()
+			secondPeerId := peerCpy[j].Id()
+			iDis := types.Xor(firstPeerId, to)
+			jDis := types.Xor(secondPeerId, to)
 			return iDis.Compare(jDis) < 0
 		})
 
@@ -202,7 +215,7 @@ func (bucket *kBucket) GetClosestPeers(to *types.UInt128, max int) []*kadTypes.P
 			return peerCpy
 		}
 	} else {
-		return []*kadTypes.Peer{}
+		return []kadTypes.Peer{}
 	}
 }
 
@@ -211,12 +224,12 @@ func (bucket *kBucket) IsFull() bool {
 }
 
 // Push the peer to the end of bucket (only if already exists)
-func (bucket *kBucket) pushToEnd(peer *kadTypes.Peer) error {
+func (bucket *kBucket) pushToEnd(peer kadTypes.Peer) error {
 	bucket.peersAccess.Lock()
 
 	for position, currPeer := range bucket.peers {
 		if peer.Equal(currPeer) {
-			bucket.peers = append(append(bucket.peers[0:position], bucket.peers[position+1:len(bucket.peers)]...), peer)
+			bucket.peers = append(append(bucket.peers[0:position], bucket.peers[position+1:bucket.peersCount]...), peer)
 			bucket.peersAccess.Unlock()
 			return nil
 		}
@@ -226,8 +239,8 @@ func (bucket *kBucket) pushToEnd(peer *kadTypes.Peer) error {
 	return errors.New("kBucket don't contains the passed peer")
 }
 
-// Update last viewed status of peer, recalculate and set TTL
-func (bucket *kBucket) SetPeerAlive(id *types.UInt128) error {
+// SetPeerAlive update last viewed status of peer, recalculate and set TTL
+func (bucket *kBucket) SetPeerAlive(id types.UInt128) error {
 	inPeer, err := bucket.GetPeer(id)
 	if err != nil {
 		return err

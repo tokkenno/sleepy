@@ -11,7 +11,7 @@ import (
 
 func TestKBucket_AddPeer(t *testing.T) {
 	peer := types2.NewPeer(types.NewUInt128FromInt(1))
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	err := kBucket.AddPeer(peer)
 
 	if err != nil {
@@ -29,7 +29,7 @@ func TestKBucket_AddPeer(t *testing.T) {
 }
 
 func TestKBucket_AddMultiplePeer(t *testing.T) {
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	randGen := rand.New(rand.NewSource(0))
 
 	for i := 0; i < maxBucketSize; i++ {
@@ -45,7 +45,7 @@ func TestKBucket_AddMultiplePeer(t *testing.T) {
 
 func TestKBucket_Count(t *testing.T) {
 	peer := types2.NewPeer(types.NewUInt128FromInt(1))
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer)
 
 	if kBucket.CountPeers() != 1 {
@@ -69,7 +69,7 @@ func TestKBucket_Count(t *testing.T) {
 func TestKBucket_GetPeer(t *testing.T) {
 	id := types.NewUInt128FromInt(1)
 	peer := types2.NewPeer(id)
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer)
 
 	gpeer, err := kBucket.GetPeer(id)
@@ -89,7 +89,7 @@ func TestKBucket_GetPeerByAddr(t *testing.T) {
 	peer.SetTCPPort(123)
 	peer.SetUDPPort(321)
 
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer)
 
 	tip := &net.TCPAddr{IP: testIp, Port: 123}
@@ -118,7 +118,7 @@ func TestKBucket_GetPeers(t *testing.T) {
 	peer1 := types2.NewPeer(types.NewUInt128FromInt(2))
 	peer2 := types2.NewPeer(types.NewUInt128FromInt(3))
 
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer0)
 	kBucket.AddPeer(peer1)
 	kBucket.AddPeer(peer2)
@@ -132,7 +132,7 @@ func TestKBucket_GetPeers(t *testing.T) {
 
 func TestKBucket_RemovePeer(t *testing.T) {
 	peer := types2.NewPeer(types.NewUInt128FromInt(1))
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer)
 	kBucket.RemovePeer(peer)
 
@@ -142,7 +142,7 @@ func TestKBucket_RemovePeer(t *testing.T) {
 }
 
 func TestKBucket_IsFull(t *testing.T) {
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	var peers [maxBucketSize]types2.Peer
 
 	if kBucket.IsFull() {
@@ -152,7 +152,7 @@ func TestKBucket_IsFull(t *testing.T) {
 	for i := 0; i < maxBucketSize; i++ {
 		newPeer := types2.NewPeer(types.NewUInt128FromInt(i))
 		newPeer.SetIP(net.ParseIP("100.101.102."+strconv.Itoa(i)), false) // Limit of peers with the same ip
-		peers[i] = *newPeer
+		peers[i] = newPeer
 		kBucket.AddPeer(newPeer)
 	}
 
@@ -165,7 +165,7 @@ func TestKBucket_SetAlive(t *testing.T) {
 	peer0 := types2.NewPeer(types.NewUInt128FromInt(1))
 	peer1 := types2.NewPeer(types.NewUInt128FromInt(2))
 
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer0)
 	kBucket.AddPeer(peer1)
 
@@ -182,7 +182,7 @@ func TestKBucket_GetRandomPeer(t *testing.T) {
 	peer0 := types2.NewPeer(types.NewUInt128FromInt(1))
 	peer1 := types2.NewPeer(types.NewUInt128FromInt(2))
 
-	kBucket := &kBucket{}
+	kBucket := newKBucket()
 	kBucket.AddPeer(peer0)
 	kBucket.AddPeer(peer1)
 

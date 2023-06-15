@@ -23,16 +23,16 @@ func LoadRouterFromFile(localId types.UInt128, path string) (*Router, error) {
 }
 
 // Create a new Zone tree (Router) from the local peer Id
-func NewRouter(id *types.UInt128) *Router {
+func NewRouter(id types.UInt128) *Router {
 	rz := &Router{
 		Zone: Zone{
-			localId:           *id.Clone(),
-			zoneIndex:         *types.NewUInt128FromInt(0),
+			localId:           id.Clone(),
+			zoneIndex:         types.NewUInt128FromInt(0),
 			parent:            nil,
 			leftChild:         nil,
 			rightChild:        nil,
 			level:             0,
-			bucket:            new(kBucket),
+			bucket:            newKBucket(),
 			randomLookupTimer: nil,
 		},
 		randomGenerator:        rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -62,7 +62,7 @@ func (router *Router) SaveFile(path string) error {
 }
 
 // Get a list of peers of [max] size prepared to do a bootstrap
-func (router *Router) GetBootstrapPeers(max int) []*types2.Peer {
+func (router *Router) GetBootstrapPeers(max int) []types2.Peer {
 	const BootstrapDepth = 5 // Defined as LOG_BASE_EXPONENT constant in protocol/defines.h
 	return router.GetTopPeers(max, BootstrapDepth)
 }

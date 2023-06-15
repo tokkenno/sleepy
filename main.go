@@ -3,12 +3,20 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"sleepy/network/kad"
+	"math/rand"
 	"os"
+	"sleepy/network"
+	"sleepy/network/kad"
+	"sleepy/types"
 )
 
 func main() {
-	kadClient := kad.NewClient(4662)
+	networkManager := network.NewManager()
+
+	kadClient := kad.NewClient(kad.Config{
+		UdpPort:  4662,
+		ClientID: types.NewUInt128(rand.Uint64(), rand.Uint64()),
+	}, networkManager)
 	kadClient.Start()
 
 	fmt.Println("Listening KAD")

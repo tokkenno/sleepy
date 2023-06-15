@@ -7,29 +7,33 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sleepy/network/ed2k"
+	netManager "sleepy/network"
+	"sleepy/network/ed2k/common"
 	"sleepy/network/kad/router"
 	"strconv"
 	"time"
 )
 
 type Client struct {
+	config     Config
 	router     *router.Router
-	listenPort uint16
+	network    netManager.Manager
 	clientAddr *net.UDPAddr
 	clientConn *net.UDPConn
 	serverAddr *net.UDPAddr
 	serverConn *net.UDPConn
 }
 
-func NewClient(port uint16) *Client {
+func NewClient(config Config, network netManager.Manager) *Client {
 	client := new(Client)
-	client.listenPort = port
+	client.config = config
+	client.network = network
+	client.router = router.NewRouter(config.ClientID)
 	return client
 }
 
 func (client *Client) Start() error {
-	serverAddr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(int(client.listenPort)))
+	serverAddr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(int(client.config.UdpPort)))
 	if err != nil {
 		return err
 	}
@@ -101,10 +105,10 @@ func (client *Client) handleUDP(data []byte, from *net.UDPAddr) error {
 	}
 
 	switch protocolCode {
-	case ed2k.ProtKadUDPCompress:
+	case common.ProtKadUDPCompress:
 		log.Println("Compressed KAD datagram. Trying decompression...")
 		return client.decompressKad(data, from)
-	case ed2k.ProtKadUDP:
+	case common.ProtKadUDP:
 		log.Println("Handling valid Kad UDP packet...")
 		return client.handleKadDatagram(request)
 	default:
@@ -127,7 +131,7 @@ func (client *Client) handleKadDatagram(request *UDPRequest) error {
 
 	switch command {
 	case CommKad2BootstrapReq:
-		HandleBootstrapRequest(client, request, response)
+		HandleBootstrapRequest(client, request)
 		return nil
 	case CommKad2BootstrapRes:
 		HandleBootstrapResponse(client, request, response)
