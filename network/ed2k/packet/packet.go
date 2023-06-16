@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"fmt"
 	"sleepy/network/common/udp"
 	"sleepy/network/ed2k/common"
 )
@@ -13,13 +14,14 @@ func NewPacket(
 	protocol common.Protocol,
 	size int,
 ) *Packet {
+	fmt.Println("ed2k.NewPacket", protocol, size)
 	packet := &Packet{}
 	if protocol == common.ProtocolEd2kServerUDP {
-		packet.RawPacket = *udp.NewPacket(size + 2)
+		packet.RawPacket = *udp.NewFixedSizeRawPacket(size + 2)
 	} else if protocol == common.ProtocolEd2kPeerUDP {
-		packet.RawPacket = *udp.NewPacket(size + 4)
+		packet.RawPacket = *udp.NewFixedSizeRawPacket(size + 4)
 	} else {
-		packet.RawPacket = *udp.NewPacket(size)
+		packet.RawPacket = *udp.NewFixedSizeRawPacket(size)
 	}
 	packet.SetProtocol(common.ProtocolEd2kServerUDP)
 	return packet
