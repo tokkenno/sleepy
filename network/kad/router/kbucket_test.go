@@ -24,7 +24,7 @@ func TestKBucket_AddPeer(t *testing.T) {
 
 	peerIn := kBucket.peers[0]
 	if !peerIn.Equal(peer) {
-		t.Errorf("K-Bucket peer not equal, 0x%s expected, 0x%s found", peer.Id().ToHexString(), peerIn.Id().ToHexString())
+		t.Errorf("K-Bucket peer not equal, 0x%s expected, 0x%s found", peer.GetID().ToHexString(), peerIn.GetID().ToHexString())
 	}
 }
 
@@ -169,7 +169,7 @@ func TestKBucket_SetAlive(t *testing.T) {
 	kBucket.AddPeer(peer0)
 	kBucket.AddPeer(peer1)
 
-	kBucket.SetPeerAlive(peer0.Id())
+	kBucket.SetPeerAlive(peer0.GetID())
 
 	if len(kBucket.Peers()) != 2 {
 		t.Errorf("K-Bucket must contains 2 unique peers")

@@ -5,9 +5,9 @@ import (
 )
 
 func TestRouter_getRoot(t *testing.T) {
-	testRouter := &Router{}
-	testZone := &Zone{
-		parent: &testRouter.Zone,
+	testRouter := &routerImp{}
+	testZone := &zone{
+		parent: &testRouter.zone,
 		root:   testRouter,
 	}
 

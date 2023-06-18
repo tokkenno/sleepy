@@ -105,7 +105,7 @@ func (bucket *kBucket) GetPeer(id types.UInt128) (kadTypes.Peer, error) {
 	bucket.peersAccess.Lock()
 
 	for peerIndex := 0; peerIndex < bucket.peersCount; peerIndex++ {
-		peerId := bucket.peers[peerIndex].Id()
+		peerId := bucket.peers[peerIndex].GetID()
 
 		if peerId.Equal(id) {
 			bucket.peersAccess.Unlock()
@@ -201,8 +201,8 @@ func (bucket *kBucket) GetClosestPeers(to types.UInt128, max int) []kadTypes.Pee
 
 		// Sort by distance
 		sort.Slice(peerCpy, func(i int, j int) bool {
-			firstPeerId := peerCpy[i].Id()
-			secondPeerId := peerCpy[j].Id()
+			firstPeerId := peerCpy[i].GetID()
+			secondPeerId := peerCpy[j].GetID()
 			iDis := types.Xor(firstPeerId, to)
 			jDis := types.Xor(secondPeerId, to)
 			return iDis.Compare(jDis) < 0

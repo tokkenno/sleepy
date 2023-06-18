@@ -6,17 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	netManager "sleepy/network"
 	"sleepy/network/ed2k/common"
 	"sleepy/network/kad/router"
+	"sleepy/network/kad/types"
+	types2 "sleepy/types"
 	"strconv"
 	"time"
 )
 
 type Client struct {
 	config     Config
-	router     *router.Router
+	router     router.Router
 	network    netManager.Manager
 	clientAddr *net.UDPAddr
 	clientConn *net.UDPConn
@@ -29,6 +32,22 @@ func NewClient(config Config, network netManager.Manager) *Client {
 	client.config = config
 	client.network = network
 	client.router = router.NewRouter(config.ClientID)
+
+	// Add fake nodes to client
+	p1 := types.NewPeer(types2.NewUInt128(rand.Uint64(), rand.Uint64()))
+	p1.SetIP(net.ParseIP("90.80.70.60"), false)
+	p1.SetUDPPort(4662)
+	p1.SetTCPPort(4661)
+	p1.SetProtocolVersion(8)
+	client.router.AddPeer(p1)
+
+	p2 := types.NewPeer(types2.NewUInt128(rand.Uint64(), rand.Uint64()))
+	p2.SetIP(net.ParseIP("190.180.170.160"), false)
+	p2.SetUDPPort(4662)
+	p2.SetTCPPort(4661)
+	p2.SetProtocolVersion(7)
+	client.router.AddPeer(p2)
+
 	return client
 }
 
@@ -78,10 +97,10 @@ func (client *Client) listenUDP() {
 
 func (client *Client) handleUDP(data []byte, from *net.UDPAddr) error {
 	if from.Port == 53 {
-		return errors.New("Dropping incoming ping from port 53. Possible DNS attack.")
+		return errors.New("dropping incoming ping from port 53. Possible DNS attack")
 	}
 
-	fmt.Println("Received ", hex.EncodeToString(data), "text", string(data), " from ", from)
+	fmt.Println("Received ", hex.EncodeToString(data), "\n\ttext", string(data), " from ", from)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()

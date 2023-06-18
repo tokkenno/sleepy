@@ -90,22 +90,47 @@ func (packet *RawPacket) SafeGetByte(position int) (byte, error) {
 	return packet.data[position], nil
 }
 
-func (packet *RawPacket) AppendUInt16(value uint16) error {
-	if packet.fixedSize >= 0 && len(packet.data)+2 > packet.fixedSize {
+func (packet *RawPacket) AppendUInt8(value uint8) error {
+	if packet.fixedSize >= 0 && packet.dataSeek+1 > packet.fixedSize {
 		return errors.New("packet is full")
 	}
 
-	packet.data = binary.LittleEndian.AppendUint16(packet.data, value)
-	packet.dataSeek = len(packet.data)
+	packet.data[packet.dataSeek] = value
+	packet.dataSeek++
+	return nil
+}
+
+func (packet *RawPacket) AppendUInt16(value uint16) error {
+	if packet.fixedSize >= 0 && packet.dataSeek+2 > packet.fixedSize {
+		return errors.New("packet is full")
+	}
+
+	convertBuffer := make([]byte, 0, 2)
+	convertBuffer = binary.LittleEndian.AppendUint16(convertBuffer, value)
+	copy(packet.data[packet.dataSeek:], convertBuffer)
+	packet.dataSeek += 2
 	return nil
 }
 
 func (packet *RawPacket) AppendInt(value int) error {
-	if packet.fixedSize >= 0 && len(packet.data)+4 > packet.fixedSize {
+	if packet.fixedSize >= 0 && packet.dataSeek+4 > packet.fixedSize {
 		return errors.New("packet is full")
 	}
 
-	packet.data = binary.LittleEndian.AppendUint32(packet.data, uint32(value))
-	packet.dataSeek = len(packet.data)
+	convertBuffer := make([]byte, 0, 4)
+	convertBuffer = binary.LittleEndian.AppendUint32(convertBuffer, uint32(value))
+	copy(packet.data[packet.dataSeek:], convertBuffer)
+	packet.dataSeek += 4
+	return nil
+}
+
+func (packet *RawPacket) AppendBytes(value []byte) error {
+	dataLen := len(value)
+	if packet.fixedSize >= 0 && packet.dataSeek+dataLen > packet.fixedSize {
+		return errors.New("packet is full")
+	}
+
+	copy(packet.data[packet.dataSeek:], value)
+	packet.dataSeek += dataLen
 	return nil
 }

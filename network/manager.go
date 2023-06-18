@@ -20,7 +20,7 @@ func NewManager() Manager {
 }
 
 func (m *manager) SendUDP(ip net.IP, port uint16, packet udp.Packet) error {
-	fmt.Sprintf("Mandando paquete a %s:%d => ", ip.String(), port)
+	fmt.Printf("Mandando paquete a %s:%d => ", ip.String(), port)
 	fmt.Println(packet.GetData())
 
 	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", ip.String(), port))

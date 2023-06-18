@@ -21,17 +21,17 @@ func TestZone_AddPeer(t *testing.T) {
 
 		if err != nil {
 			t.Errorf("Unexpected error when add peer: %s", err.Error())
-		} else if zone.ContainsPeer(peer.Id()) {
-			peerIn, err := zone.GetPeer(peer.Id())
+		} else if zone.ContainsPeer(peer.GetID()) {
+			peerIn, err := zone.GetPeer(peer.GetID())
 			if err != nil {
 				t.Errorf("Unexpected error: %s", err.Error())
 			} else if peerIn == nil {
 				t.Errorf("Peer can't be null")
 			} else if !peerIn.Equal(peer) {
-				t.Errorf("Z peer not equal, 0x%s expected, 0x%s found", peer.Id().ToHexString(), peerIn.Id().ToHexString())
+				t.Errorf("Z peer not equal, 0x%s expected, 0x%s found", peer.GetID().ToHexString(), peerIn.Id().ToHexString())
 			}
 		} else {
-			t.Errorf("Zone must contains the peer, but not found.")
+			t.Errorf("zone must contains the peer, but not found.")
 		}
 	}
 }
@@ -69,7 +69,7 @@ func TestZone_ContainsPeer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error when add peer: %s", err.Error())
 	} else if !router.ContainsPeer(peerId) {
-		t.Errorf("Router must contains the peer: %s", peerId.ToHexString())
+		t.Errorf("routerImp must contains the peer: %s", peerId.ToHexString())
 	}
 }
 
@@ -86,7 +86,7 @@ func TestZone_CountPeers(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error when add peer: %s", err.Error())
 		} else if zone.CountPeers() != i {
-			t.Errorf("Zone must contains %d peers, %d found", i, zone.CountPeers())
+			t.Errorf("zone must contains %d peers, %d found", i, zone.CountPeers())
 		}
 	}
 }

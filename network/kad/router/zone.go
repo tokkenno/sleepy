@@ -27,14 +27,14 @@ type PeerIdEventArgs struct {
 	Id types.UInt128
 }
 
-// Zone is node inside a binary tree of k-buckets
-type Zone struct {
+// zone is node inside a binary tree of k-buckets
+type zone struct {
 	localId           types.UInt128
 	zoneIndex         types.UInt128
-	parent            *Zone
-	root              *Router
-	leftChild         *Zone
-	rightChild        *Zone
+	parent            *zone
+	root              *routerImp
+	leftChild         *zone
+	rightChild        *zone
 	level             uint8
 	bucket            *kBucket
 	updatePeersTimer  *time.Ticker
@@ -44,14 +44,14 @@ type Zone struct {
 }
 
 // Create a child zone from a parent instance
-func newChildZone(parent Zone, isRightChild bool) *Zone {
+func newChildZone(parent zone, isRightChild bool) *zone {
 	zoneIndexCalculated := parent.zoneIndex.Clone()
 	zoneIndexCalculated.LeftShift(1)
 	if isRightChild {
 		zoneIndexCalculated.Add(types.NewUInt128FromInt(1))
 	}
 
-	rz := &Zone{
+	rz := &zone{
 		localId:           parent.localId,
 		zoneIndex:         zoneIndexCalculated,
 		parent:            &parent,
@@ -70,60 +70,60 @@ func newChildZone(parent Zone, isRightChild bool) *Zone {
 }
 
 // Create the two child zones from the parent instance
-func newChildZones(parent Zone) (*Zone, *Zone) {
+func newChildZones(parent zone) (*zone, *zone) {
 	return newChildZone(parent, false), newChildZone(parent, true)
 }
 
 // Dispose resources
-func (zone *Zone) Dispose() {
-	if zone.isLeaf() {
-		zone.stopChecks()
-		zone.bucket = nil
+func (zn *zone) Dispose() {
+	if zn.isLeaf() {
+		zn.stopChecks()
+		zn.bucket = nil
 	} else {
-		zone.leftChild.Dispose()
-		zone.leftChild = nil
-		zone.rightChild.Dispose()
-		zone.rightChild = nil
+		zn.leftChild.Dispose()
+		zn.leftChild = nil
+		zn.rightChild.Dispose()
+		zn.rightChild = nil
 	}
 }
 
-// Get the root Zone, of type Router
-func (zone *Zone) Root() *Router {
-	return zone.root
+// Get the root zone, of type routerImp
+func (zn *zone) Root() *routerImp {
+	return zn.root
 }
 
-// Get the parent Zone in the tree
-func (zone *Zone) Parent() *Zone {
-	return zone.parent
+// Get the parent zone in the tree
+func (zn *zone) Parent() *zone {
+	return zn.parent
 }
 
 // Start all check subroutines
-func (zone *Zone) startChecks() {
-	zone.checkStopFlag = false
-	go zone.runUpdatePeersTimer()
-	go zone.runRandomLookupTimer()
+func (zn *zone) startChecks() {
+	zn.checkStopFlag = false
+	go zn.runUpdatePeersTimer()
+	go zn.runRandomLookupTimer()
 }
 
 // Stop all check subroutines
-func (zone *Zone) stopChecks() {
-	zone.checkStopFlag = true
+func (zn *zone) stopChecks() {
+	zn.checkStopFlag = true
 }
 
 // Check if the object is a leaf (is not, is a branch)
-func (zone *Zone) isLeaf() bool {
-	return zone.bucket != nil
+func (zn *zone) isLeaf() bool {
+	return zn.bucket != nil
 }
 
 // Get the max depth of this branch
-func (zone *Zone) maxDepth() int {
-	zone.zoneAccess.Lock()
-	if zone.isLeaf() {
-		zone.zoneAccess.Unlock()
+func (zn *zone) maxDepth() int {
+	zn.zoneAccess.Lock()
+	if zn.isLeaf() {
+		zn.zoneAccess.Unlock()
 		return 0
 	} else {
-		ld := zone.leftChild.maxDepth()
-		rd := zone.rightChild.maxDepth()
-		zone.zoneAccess.Unlock()
+		ld := zn.leftChild.maxDepth()
+		rd := zn.rightChild.maxDepth()
+		zn.zoneAccess.Unlock()
 		if ld > rd {
 			return ld + 1
 		} else {
@@ -133,57 +133,57 @@ func (zone *Zone) maxDepth() int {
 }
 
 // Run a timer to do random lookup of peers
-func (zone *Zone) runRandomLookupTimer() {
-	zone.randomLookupTimer = time.NewTicker(10 * time.Second)
-	for range zone.randomLookupTimer.C {
-		if zone.checkStopFlag {
+func (zn *zone) runRandomLookupTimer() {
+	zn.randomLookupTimer = time.NewTicker(10 * time.Second)
+	for range zn.randomLookupTimer.C {
+		if zn.checkStopFlag {
 			// TODO: Find other immediate way to stop
 			break
 		} else {
-			zone.onRandomLookupTimer()
+			zn.onRandomLookupTimer()
 		}
 	}
 }
 
 // Handle the RandomLookup timer and run a lookup of a random peer inside each leaf (onBigTimer)
-func (zone *Zone) onRandomLookupTimer() {
-	zone.zoneAccess.Lock()
-	if zone.isLeaf() && zone.level < maxLevels || float32(zone.bucket.CountPeers()) >= (maxBucketSize*0.8) {
-		// Generate a random ID inside this zone
-		randId := zone.zoneIndex.Clone()
-		randId.LeftShift(uint(zone.level))
-		randId.Xor(zone.localId)
+func (zn *zone) onRandomLookupTimer() {
+	zn.zoneAccess.Lock()
+	if zn.isLeaf() && zn.level < maxLevels || float32(zn.bucket.CountPeers()) >= (maxBucketSize*0.8) {
+		// Generate a random ID inside this zn
+		randId := zn.zoneIndex.Clone()
+		randId.LeftShift(uint(zn.level))
+		randId.Xor(zn.localId)
 
 		// Emit event. The KAD client will insert the peer if it finds it
-		zone.Root().peerLookupRequestEvent.Emit(zone, PeerIdEventArgs{Id: randId})
+		zn.Root().peerLookupRequestEvent.Emit(zn, PeerIdEventArgs{Id: randId})
 	}
-	zone.zoneAccess.Unlock()
+	zn.zoneAccess.Unlock()
 }
 
 // Run a timer to do periodic check of the peers
-func (zone *Zone) runUpdatePeersTimer() {
-	idLow, _ := zone.localId.ToUInt64()
-	zone.updatePeersTimer = time.NewTicker(time.Duration(idLow) * time.Second)
-	for range zone.updatePeersTimer.C {
-		if zone.checkStopFlag {
+func (zn *zone) runUpdatePeersTimer() {
+	idLow, _ := zn.localId.ToUInt64()
+	zn.updatePeersTimer = time.NewTicker(time.Duration(idLow) * time.Second)
+	for range zn.updatePeersTimer.C {
+		if zn.checkStopFlag {
 			// TODO: Find other immediate way to stop
 			break
 		} else {
-			zone.onUpdatePeersTimer()
+			zn.onUpdatePeersTimer()
 		}
 	}
 }
 
 // Handle the UpdatePeers timer and run a check and update of the peers inside each leaf (onSmallTimer)
-func (zone *Zone) onUpdatePeersTimer() {
-	zone.zoneAccess.Lock()
-	if zone.isLeaf() {
+func (zn *zone) onUpdatePeersTimer() {
+	zn.zoneAccess.Lock()
+	if zn.isLeaf() {
 		// Remove dead entries
-		for _, peer := range zone.bucket.Peers() {
+		for _, peer := range zn.bucket.Peers() {
 			// If peer is not alive
 			if !peer.IsAlive() {
 				if !peer.InUse() {
-					zone.bucket.RemovePeer(peer)
+					zn.bucket.RemovePeer(peer)
 				}
 			} else if peer.GetExpiresAt().Equal(time.Time{}) {
 				peer.SetExpiration(time.Now().Add(time.Microsecond))
@@ -191,12 +191,12 @@ func (zone *Zone) onUpdatePeersTimer() {
 		}
 
 		// Update the oldest peer
-		oldestPeer := zone.bucket.OldestPeer()
+		oldestPeer := zn.bucket.OldestPeer()
 
 		if oldestPeer != nil {
 			// FIXME: pContact->GetType() == 4 ???
 			if !oldestPeer.IsAlive() || oldestPeer.GetExpiresAt().After(time.Now()) {
-				zone.bucket.pushToEnd(oldestPeer)
+				zn.bucket.pushToEnd(oldestPeer)
 				oldestPeer = nil
 			}
 		}
@@ -205,25 +205,25 @@ func (zone *Zone) onUpdatePeersTimer() {
 			oldestPeer.DegradeType()
 			if oldestPeer.GetProtocolVersion() >= common.ProtocolVersion2 {
 				// FIXME: The version 2 or 6 send different data, see RoutingZone.cpp:937
-				router := zone.Root()
-				router.peerUpdateRequestEvent.EmitSync(zone, PeerEventArgs{Peer: oldestPeer})
+				router := zn.Root()
+				router.peerUpdateRequestEvent.EmitSync(zn, PeerEventArgs{Peer: oldestPeer})
 			}
 		}
 	}
-	zone.zoneAccess.Unlock()
+	zn.zoneAccess.Unlock()
 }
 
 // Check if the current leaf can be splitted in a branch with 2 leafs
-func (zone *Zone) canSplit() bool {
+func (zn *zone) canSplit() bool {
 	// TODO: Check if the global contact limit is reached
 
 	// Max levels allowed reached
-	if zone.level >= 127 {
+	if zn.level >= 127 {
 		return false
 	}
 
-	// Check if this zone is allowed to split.
-	if zone.level < (maxLevels-1) && zone.bucket.CountPeers() == maxBucketSize {
+	// Check if this zn is allowed to split.
+	if zn.level < (maxLevels-1) && zn.bucket.CountPeers() == maxBucketSize {
 		return true
 	}
 
@@ -231,78 +231,78 @@ func (zone *Zone) canSplit() bool {
 }
 
 // Retract and consolidate the tree branch if it is possible
-func (zone *Zone) consolidate() {
-	zone.zoneAccess.Lock()
-	if zone.isLeaf() {
+func (zn *zone) consolidate() {
+	zn.zoneAccess.Lock()
+	if zn.isLeaf() {
 		return
 	} else {
-		if zone.leftChild.isLeaf() {
-			zone.leftChild.consolidate()
+		if zn.leftChild.isLeaf() {
+			zn.leftChild.consolidate()
 		}
-		if zone.rightChild.isLeaf() {
-			zone.rightChild.consolidate()
+		if zn.rightChild.isLeaf() {
+			zn.rightChild.consolidate()
 		}
-		if zone.leftChild.isLeaf() && zone.rightChild.isLeaf() && zone.CountPeers() < (maxBucketSize/2) {
+		if zn.leftChild.isLeaf() && zn.rightChild.isLeaf() && zn.CountPeers() < (maxBucketSize/2) {
 			// Initialize leaf variables
-			zone.bucket = new(kBucket)
+			zn.bucket = new(kBucket)
 
 			// Stop left child, get contacts and dispose
-			zone.leftChild.stopChecks()
-			for _, currPeer := range zone.leftChild.bucket.peers {
-				zone.bucket.AddPeer(currPeer)
+			zn.leftChild.stopChecks()
+			for _, currPeer := range zn.leftChild.bucket.peers {
+				zn.bucket.AddPeer(currPeer)
 			}
-			zone.leftChild.Dispose()
-			zone.leftChild = nil
+			zn.leftChild.Dispose()
+			zn.leftChild = nil
 
 			// Stop right child, get contacts and dispose
-			zone.rightChild.stopChecks()
-			for _, currPeer := range zone.rightChild.bucket.peers {
-				zone.bucket.AddPeer(currPeer)
+			zn.rightChild.stopChecks()
+			for _, currPeer := range zn.rightChild.bucket.peers {
+				zn.bucket.AddPeer(currPeer)
 			}
-			zone.rightChild = nil
+			zn.rightChild = nil
 
 			// Restart checks
-			zone.startChecks()
+			zn.startChecks()
 		}
 	}
-	zone.zoneAccess.Unlock()
+	zn.zoneAccess.Unlock()
 }
 
 // Split a leaf into a branch with two leafs
-func (zone *Zone) split() error {
-	if zone.canSplit() {
-		zone.stopChecks()
-		zone.leftChild, zone.rightChild = newChildZones(*zone)
+func (zn *zone) split() error {
+	if zn.canSplit() {
+		zn.stopChecks()
+		zn.leftChild, zn.rightChild = newChildZones(*zn)
 
-		for _, currPeer := range zone.bucket.Peers() {
-			distance := currPeer.GetDistance(zone.localId)
-			if distance.GetBit(zone.Level()) == 0 {
-				zone.leftChild.AddPeer(currPeer)
+		for _, currPeer := range zn.bucket.Peers() {
+			distance := currPeer.GetDistance(zn.localId)
+			if distance.GetBit(zn.Level()) == 0 {
+				zn.leftChild.AddPeer(currPeer)
 			} else {
-				zone.rightChild.AddPeer(currPeer)
+				zn.rightChild.AddPeer(currPeer)
 			}
 		}
 
-		zone.bucket = nil
+		zn.bucket = nil
 	} else {
-		return errors.New("this zone can't be splitted")
+		return errors.New("this zn can't be splitted")
 	}
 
 	return nil
 }
 
 // Get the zone depth on the router tree
-func (zone *Zone) Level() int {
-	return int(zone.level)
+func (zn *zone) Level() int {
+	return int(zn.level)
 }
 
 // Get the zone max depth from the most length branch
-func (zone *Zone) MaxDepth() int {
-	if zone.isLeaf() {
+func (zn *zone) MaxDepth() int {
+	if zn.isLeaf() {
 		return 0
 	} else {
-		left := zone.leftChild.MaxDepth()
-		right := zone.rightChild.MaxDepth()
+		left := zn.leftChild.MaxDepth()
+		right := zn.rightChild.MaxDepth()
 		if left > right {
 			return left
 		} else {
@@ -312,30 +312,30 @@ func (zone *Zone) MaxDepth() int {
 }
 
 // Add peer to the route table
-func (zone *Zone) AddPeer(peer types2.Peer) error {
+func (zn *zone) AddPeer(peer types2.Peer) error {
 	// TODO: Filter IPs and protocol versions
 
-	if !zone.isLeaf() {
-		// If the zone isn't leaf, insert in the indicated child zone
-		if peer.GetDistance(zone.localId).GetBit(int(zone.level)) == 0 {
-			return zone.leftChild.AddPeer(peer)
+	if !zn.isLeaf() {
+		// If the zn isn't leaf, insert in the indicated child zn
+		if peer.GetDistance(zn.localId).GetBit(int(zn.level)) == 0 {
+			return zn.leftChild.AddPeer(peer)
 		} else {
-			return zone.rightChild.AddPeer(peer)
+			return zn.rightChild.AddPeer(peer)
 		}
 	} else {
-		if !zone.localId.Equal(peer.Id()) {
-			locPeer, err := zone.bucket.GetPeer(peer.Id())
+		if !zn.localId.Equal(peer.GetID()) {
+			locPeer, err := zn.bucket.GetPeer(peer.GetID())
 
 			if err == nil && locPeer != nil {
 				// If the peer already exists, update
 				return locPeer.UpdateFrom(peer)
-			} else if !zone.bucket.IsFull() {
+			} else if !zn.bucket.IsFull() {
 				// If not exists, but leaf has free space, insert
-				return zone.bucket.AddPeer(peer)
-			} else if zone.canSplit() {
+				return zn.bucket.AddPeer(peer)
+			} else if zn.canSplit() {
 				// If don't have free space but can be split and retry
-				zone.split()
-				return zone.AddPeer(peer)
+				zn.split()
+				return zn.AddPeer(peer)
 			} else {
 				return errors.New("the peer can't be added. bucket full and can't be split")
 			}
@@ -348,28 +348,28 @@ func (zone *Zone) AddPeer(peer types2.Peer) error {
 }
 
 // Get a peer from his id
-func (zone *Zone) GetPeer(id types.UInt128) (types2.Peer, error) {
-	if zone.isLeaf() {
-		return zone.bucket.GetPeer(id)
+func (zn *zone) GetPeer(id types.UInt128) (types2.Peer, error) {
+	if zn.isLeaf() {
+		return zn.bucket.GetPeer(id)
 	} else {
-		distance := types.Xor(zone.localId, id)
-		if distance.GetBit(zone.Level()) == 0 {
-			return zone.leftChild.GetPeer(id)
+		distance := types.Xor(zn.localId, id)
+		if distance.GetBit(zn.Level()) == 0 {
+			return zn.leftChild.GetPeer(id)
 		} else {
-			return zone.rightChild.GetPeer(id)
+			return zn.rightChild.GetPeer(id)
 		}
 	}
 }
 
 // Get a peer from his addr
-func (zone *Zone) GetPeerByAddr(addr net.Addr) (types2.Peer, error) {
-	if zone.isLeaf() {
-		return zone.bucket.GetPeerByAddr(addr)
+func (zn *zone) GetPeerByAddr(addr net.Addr) (types2.Peer, error) {
+	if zn.isLeaf() {
+		return zn.bucket.GetPeerByAddr(addr)
 	} else {
-		left, err := zone.leftChild.GetPeerByAddr(addr)
+		left, err := zn.leftChild.GetPeerByAddr(addr)
 
 		if err != nil {
-			return zone.rightChild.GetPeerByAddr(addr)
+			return zn.rightChild.GetPeerByAddr(addr)
 		} else {
 			return left, err
 		}
@@ -377,11 +377,11 @@ func (zone *Zone) GetPeerByAddr(addr net.Addr) (types2.Peer, error) {
 }
 
 // Get a random peer from a random branch
-func (zone *Zone) GetRandomPeer() (types2.Peer, error) {
-	if zone.isLeaf() {
-		return zone.bucket.GetRandomPeer()
+func (zn *zone) GetRandomPeer() (types2.Peer, error) {
+	if zn.isLeaf() {
+		return zn.bucket.GetRandomPeer()
 	} else {
-		childs := [2]*Zone{zone.leftChild, zone.rightChild}
+		childs := [2]*zone{zn.leftChild, zn.rightChild}
 		rPos := rand.Intn(1)
 
 		peer, err := childs[rPos].GetRandomPeer()
@@ -394,32 +394,32 @@ func (zone *Zone) GetRandomPeer() (types2.Peer, error) {
 }
 
 // Get a slice of all peers
-func (zone *Zone) Peers() []types2.Peer {
-	if zone.isLeaf() {
-		return zone.bucket.peers
+func (zn *zone) Peers() []types2.Peer {
+	if zn.isLeaf() {
+		return zn.bucket.peers
 	} else {
-		return append(zone.leftChild.Peers(), zone.rightChild.Peers()...)
+		return append(zn.leftChild.Peers(), zn.rightChild.Peers()...)
 	}
 }
 
 // Get a slice with the [maxPeers] top peers.
-func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []types2.Peer {
+func (zn *zone) GetTopPeers(maxPeers int, maxDepth int) []types2.Peer {
 	var peers []types2.Peer
 
-	zone.zoneAccess.Lock()
-	if zone.isLeaf() {
-		peers = zone.bucket.Peers()
+	zn.zoneAccess.Lock()
+	if zn.isLeaf() {
+		peers = zn.bucket.Peers()
 	} else if maxDepth <= 0 {
-		peers = zone.GetRandomBucketPeers()
+		peers = zn.GetRandomBucketPeers()
 	} else {
-		fmt.Println(zone.leftChild)
-		peers = zone.leftChild.GetTopPeers(maxPeers, maxDepth-1)
+		fmt.Println(zn.leftChild)
+		peers = zn.leftChild.GetTopPeers(maxPeers, maxDepth-1)
 
 		if len(peers) < maxPeers {
-			peers = append(peers, zone.rightChild.GetTopPeers(maxPeers-len(peers), maxDepth-1)...)
+			peers = append(peers, zn.rightChild.GetTopPeers(maxPeers-len(peers), maxDepth-1)...)
 		}
 	}
-	zone.zoneAccess.Unlock()
+	zn.zoneAccess.Unlock()
 
 	if len(peers) < maxPeers {
 		return peers
@@ -428,38 +428,38 @@ func (zone *Zone) GetTopPeers(maxPeers int, maxDepth int) []types2.Peer {
 	}
 }
 
-// Obtain peers from a random bucket located at least at the [depth] indicated on the Zone tree
-func (zone *Zone) GetDepthPeers(depth int) []types2.Peer {
-	if zone.isLeaf() {
-		return zone.bucket.Peers()
+// Obtain peers from a random bucket located at least at the [depth] indicated on the zone tree
+func (zn *zone) GetDepthPeers(depth int) []types2.Peer {
+	if zn.isLeaf() {
+		return zn.bucket.Peers()
 	} else if depth <= 0 {
-		return zone.GetRandomBucketPeers()
+		return zn.GetRandomBucketPeers()
 	} else {
-		return append(zone.leftChild.GetDepthPeers(depth-1), zone.rightChild.GetDepthPeers(depth-1)...)
+		return append(zn.leftChild.GetDepthPeers(depth-1), zn.rightChild.GetDepthPeers(depth-1)...)
 	}
 }
 
 // Get the peers from a random child bucket
-func (zone *Zone) GetRandomBucketPeers() []types2.Peer {
-	if zone.isLeaf() {
-		return zone.bucket.Peers()
+func (zn *zone) GetRandomBucketPeers() []types2.Peer {
+	if zn.isLeaf() {
+		return zn.bucket.Peers()
 	} else {
-		if zone.Root().randomGenerator.Intn(1) == 0 {
-			return zone.leftChild.GetRandomBucketPeers()
+		if zn.Root().randomGenerator.Intn(1) == 0 {
+			return zn.leftChild.GetRandomBucketPeers()
 		} else {
-			return zone.rightChild.GetRandomBucketPeers()
+			return zn.rightChild.GetRandomBucketPeers()
 		}
 	}
 }
 
 // Get the closest [max] peers respect the [to] id.
-func (zone *Zone) GetClosestPeers(to types.UInt128, max int) []types2.Peer {
-	if zone.isLeaf() {
+func (zn *zone) GetClosestPeers(to types.UInt128, max int) []types2.Peer {
+	if zn.isLeaf() {
 		// If leaf, get from bucket
-		return zone.bucket.GetClosestPeers(to, max)
+		return zn.bucket.GetClosestPeers(to, max)
 	} else {
-		children := [2]*Zone{zone.leftChild, zone.rightChild}
-		rPos := to.GetBit(int(zone.level))
+		children := [2]*zone{zn.leftChild, zn.rightChild}
+		rPos := to.GetBit(int(zn.level))
 
 		// Get from the closest branch
 		peers := children[rPos].GetClosestPeers(to, max)
@@ -473,26 +473,26 @@ func (zone *Zone) GetClosestPeers(to types.UInt128, max int) []types2.Peer {
 }
 
 // Count the number of peers inside the branch
-func (zone *Zone) CountPeers() int {
-	if zone.isLeaf() {
-		return zone.bucket.CountPeers()
+func (zn *zone) CountPeers() int {
+	if zn.isLeaf() {
+		return zn.bucket.CountPeers()
 	} else {
-		return zone.leftChild.CountPeers() + zone.rightChild.CountPeers()
+		return zn.leftChild.CountPeers() + zn.rightChild.CountPeers()
 	}
 }
 
 // Check if exists a peer with a concrete id into the zone
-func (zone *Zone) ContainsPeer(id types.UInt128) bool {
-	if zone.isLeaf() {
-		return zone.bucket.ContainsPeer(id)
+func (zn *zone) ContainsPeer(id types.UInt128) bool {
+	if zn.isLeaf() {
+		return zn.bucket.ContainsPeer(id)
 	} else {
-		return zone.leftChild.ContainsPeer(id) || zone.rightChild.ContainsPeer(id)
+		return zn.leftChild.ContainsPeer(id) || zn.rightChild.ContainsPeer(id)
 	}
 }
 
 // Set a peer as verified
-func (zone *Zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
-	peer, err := zone.GetPeer(id)
+func (zn *zone) VerifyPeer(id types.UInt128, ip net.IP) bool {
+	peer, err := zn.GetPeer(id)
 
 	if err != nil {
 		return false

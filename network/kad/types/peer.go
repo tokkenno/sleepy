@@ -17,7 +17,7 @@ const (
 
 type Peer interface {
 	Equal(other Peer) bool
-	Id() types.UInt128
+	GetID() types.UInt128
 	// SetIP set the current [ip] for the peer, and will set it as [verified] or not
 	SetIP(ip net.IP, verified bool)
 	// GetIP get the current IP of the peer
@@ -33,6 +33,7 @@ type Peer interface {
 	GetTCPPort() uint16
 	SetTCPPort(port uint16)
 	GetProtocolVersion() uint8
+	SetProtocolVersion(version uint8)
 	GetCreatedAt() time.Time
 	GetExpiresAt() time.Time
 	// SetExpiration set the expiration time
@@ -86,7 +87,7 @@ func NewPeer(id types.UInt128) Peer {
 }
 
 // Id gets the current peer id
-func (peer *peerImp) Id() types.UInt128 {
+func (peer *peerImp) GetID() types.UInt128 {
 	return peer.id.Clone()
 }
 
@@ -211,7 +212,7 @@ func (peer *peerImp) RemoveUse() {
 
 // Check if two peers are equals (If they have the same Id)
 func (peer *peerImp) Equal(otherPeer Peer) bool {
-	return peer.id.Equal(otherPeer.Id())
+	return peer.id.Equal(otherPeer.GetID())
 }
 
 func (peer *peerImp) DegradeType() {

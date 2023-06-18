@@ -2,12 +2,20 @@ package kad
 
 import (
 	"errors"
+	"net"
 	"sleepy/types"
 )
 
 type Reader struct {
 	data   []byte
 	offset int64
+}
+
+func NewReader(data []byte) *Reader {
+	return &Reader{
+		data:   data,
+		offset: 0,
+	}
 }
 
 func (reader *Reader) Read(buffer []byte) (n int, err error) {
@@ -102,6 +110,15 @@ func (reader *Reader) ReadString(txtSize uint) (string, error) {
 		return "", err
 	} else {
 		return string(buffer), nil
+	}
+}
+
+func (reader *Reader) ReadIPv4() (net.IP, error) {
+	buffer, err := reader.ReadBytes(4)
+	if err != nil {
+		return net.IPv4zero, err
+	} else {
+		return net.IPv4(buffer[0], buffer[1], buffer[2], buffer[3]), nil
 	}
 }
 
